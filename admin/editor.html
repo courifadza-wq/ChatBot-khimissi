@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧠 Admin — Bot WhatsApp (Intentions)</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --line:#334155;
+    --txt:#e2e8f0; --muted:#94a3b8; --accent:#22d3ee; --green:#34d399;
+    --red:#f87171; --amber:#fbbf24; --r:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+  header{background:linear-gradient(135deg,#0e7490,#1e40af);padding:18px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  header h1{font-size:20px;font-weight:700}
+  header .sub{font-size:13px;color:#dbeafe;opacity:.9}
+  .badges{display:flex;gap:8px}
+  .badge{background:rgba(255,255,255,.15);padding:4px 10px;border-radius:20px;font-size:12px}
+  main{display:grid;grid-template-columns:280px 1fr 340px;gap:16px;padding:20px;max-width:1400px;margin:0 auto}
+  @media(max-width:1100px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;overflow:hidden}
+  .panel h2{font-size:14px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:12px}
+  button{background:var(--accent);color:#062a2e;border:none;padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;transition:.15s}
+  button:hover{filter:brightness(1.1)}
+  button.secondary{background:var(--panel2);color:var(--txt);border:1px solid var(--line)}
+  button.danger{background:var(--red);color:#fff}
+  button.small{padding:4px 10px;font-size:12px}
+  input,textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--accent)}
+  .intent-list{list-style:none}
+  .intent-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+  .intent-item:hover{background:var(--panel2)}
+  .intent-item.active{background:#164e63;border-color:var(--accent)}
+  .intent-item .name{font-weight:600;font-size:14px}
+  .intent-item .meta{font-size:11px;color:var(--muted);margin-top:2px}
+  .patterns-box{margin-top:6px;display:flex;flex-direction:column;gap:6px}
+  .pattern-row{display:flex;gap:6px;align-items:center}
+  .pattern-row input{flex:1}
+  .hint{font-size:12px;color:var(--muted);margin:8px 0}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .test-box{display:flex;gap:8px;margin-top:8px}
+  .result{background:#064e3b;color:var(--green);padding:8px 12px;border-radius:8px;font-weight:600;font-size:13px;margin-top:8px}
+  .result.fallback{background:#451a03;color:var(--amber)}
+  .count-chip{font-size:11px;background:#0ea5e9;color:#fff;padding:2px 8px;border-radius:12px}
+  .arabic-chip{font-size:11px;background:#7c3aed;color:#fff;padding:2px 8px;border-radius:12px}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--green);color:#022c22;padding:12px 18px;border-radius:10px;font-weight:700;opacity:0;transform:translateY(20px);transition:.3s;z-index:99}
+  .toast.show{opacity:1;transform:translateY(0)}
+  .toast.error{background:var(--red);color:#fff}
+  .muted{color:var(--muted);font-size:12px}
+  .list-item{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .list-item input{flex:1}
+  .add-row{display:flex;gap:6px;margin-top:6px}
+  section.tab{margin-top:14px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🧠 Admin — Bot WhatsApp</h1>
+    <div class="sub">Ajoute &amp; enrichis les intentions (Français · Arabe · Derja)</div>
+  </div>
+  <div class="badges">
+    <span class="badge" id="b-count">— intentions</span>
+    <span class="badge" id="b-arab">— arabes</span>
+    <span class="badge" id="b-mode">mode hybrid</span>
+  </div>
+</header>
+
+<main>
+  <!-- ============ COLONNE 1 : liste des intentions ============ -->
+  <div class="panel">
+    <h2>Intentions</h2>
+    <button id="btn-new" class="secondary" style="width:100%;margin-bottom:10px">+ Nouvelle intention</button>
+    <ul class="intent-list" id="intent-list"></ul>
+  </div>
+
+  <!-- ============ COLONNE 2 : édition de l'intention ============ -->
+  <div class="panel" id="editor-panel">
+    <h2>Éditer l'intention</h2>
+    <div id="editor-empty" class="hint">Sélectionne une intention ou crée-en une nouvelle.</div>
+    <div id="editor" style="display:none">
+      <label class="muted">Nom de l'intention</label>
+      <input id="e-name" placeholder="ex : recharge">
+      <label class="muted" style="display:block;margin-top:12px">Phrases d'exemple (fr, arabe, derja) — plus il y en a, mieux c'est</label>
+      <div class="patterns-box" id="e-patterns"></div>
+      <button class="secondary" id="btn-add-pattern" style="margin-top:8px">+ Ajouter une phrase</button>
+      <div class="toolbar">
+        <button id="btn-save">💾 Enregistrer &amp; re-entraîner</button>
+        <button class="danger" id="btn-delete">🗑 Supprimer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ COLONNE 3 : test + produits ============ -->
+  <div>
+    <div class="panel">
+      <h2>🧪 Tester le bot</h2>
+      <p class="muted" style="margin-bottom:8px">Écris une phrase et vérifie l'intention détectée.</p>
+      <div class="test-box">
+        <input id="t-input" placeholder="ex : بغيت نطلب ، je veux commander…">
+        <button id="btn-test">Tester</button>
+      </div>
+      <div id="t-result"></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>🛍 Catalogue produits</h2>
+      <div id="prod-list"></div>
+      <button id="btn-save-prod" style="margin-top:10px">💾 Enregistrer le catalogue</button>
+      <div id="prod-status"></div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  État
+// ============================================================
+let allIntents = [];
+let currentName = null;
+
+const $ = id => document.getElementById(id);
+const toast = (msg, isErr=false) => {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr?' error':'');
+  setTimeout(()=>t.className='toast', 2500);
+};
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function isArabic(s){ return /[\u0600-\u06FF]/.test(s); }
+
+// ============================================================
+//  Chargement
+// ============================================================
+async function load(){
+  try{
+    const r = await fetch('/api/intents');
+    const data = await r.json();
+    allIntents = data.intents;
+    renderList();
+    updateBadges();
+    if(currentName && allIntents.find(i=>i.name===currentName)) openEditor(currentName);
+  }catch(e){ toast('Erreur chargement: '+e, true); }
+}
+
+function updateBadges(){
+  $('b-count').textContent = allIntents.length + ' intentions';
+  const ar = allIntents.reduce((s,i)=>s+i.arabic,0);
+  $('b-arab').textContent = ar + ' phrases arabes';
+}
+
+function renderList(){
+  const ul = $('intent-list');
+  ul.innerHTML = '';
+  allIntents.forEach(i=>{
+    const li = document.createElement('li');
+    li.className = 'intent-item' + (i.name===currentName?' active':'');
+    li.innerHTML = `
+      <div>
+        <div class="name">${escapeHtml(i.name)}</div>
+        <div class="meta"><span class="count-chip">${i.count}</span> <span class="arabic-chip">${i.arabic}</span></div>
+      </div>`;
+    li.onclick = ()=>openEditor(i.name);
+    ul.appendChild(li);
+  });
+}
+
+// ============================================================
+//  Éditeur
+// ============================================================
+function openEditor(name){
+  const it = allIntents.find(i=>i.name===name);
+  if(!it) return;
+  currentName = name;
+  $('editor-empty').style.display='none';
+  $('editor').style.display='block';
+  $('e-name').value = it.name;
+  renderPatterns(it.patterns);
+  renderList();
+}
+
+function renderPatterns(patterns){
+  const box = $('e-patterns');
+  box.innerHTML='';
+  patterns.forEach(p=>{
+    const row = document.createElement('div');
+    row.className='pattern-row';
+    const inp = document.createElement('input');
+    inp.value = p;
+    inp.placeholder='phrase…';
+    const del = document.createElement('button');
+    del.className='danger small'; del.textContent='✕';
+    del.onclick=()=>{ row.remove(); };
+    row.appendChild(inp); row.appendChild(del);
+    box.appendChild(row);
+  });
+}
+
+function collectPatterns(){
+  return [...$('e-patterns').querySelectorAll('input')].map(i=>i.value.trim()).filter(Boolean);
+}
+
+$('btn-add-pattern').onclick=()=>{
+  const box=$('e-patterns');
+  const row=document.createElement('div'); row.className='pattern-row';
+  const inp=document.createElement('input'); inp.placeholder='nouvelle phrase…';
+  const del=document.createElement('button'); del.className='danger small'; del.textContent='✕';
+  del.onclick=()=>row.remove();
+  row.appendChild(inp); row.appendChild(del); box.appendChild(row); inp.focus();
+};
+
+$('btn-new').onclick=()=>{
+  const n = prompt("Nom de la nouvelle intention (ex: recharge) :");
+  if(!n || !n.trim()) return;
+  const name=n.trim();
+  if(allIntents.find(i=>i.name===name)){ toast('Cette intention existe déjà', true); return; }
+  allIntents.push({name, patterns:[], count:0, arabic:0});
+  openEditor(name);
+};
+
+$('btn-save').onclick=async()=>{
+  const name=$('e-name').value.trim();
+  if(!name){ toast('Nom requis', true); return; }
+  const oldName=currentName;
+  if(name!==oldName){
+    allIntents = allIntents.map(i=> i.name===oldName ? {...i, name} : i);
+    currentName=name;
+  }
+  const patterns=collectPatterns();
+  allIntents = allIntents.map(i=> i.name===currentName ? {...i, patterns} : i);
+  await saveIntents();
+  load();
+  toast('✅ Enregistré & classifieur re-entraîné');
+};
+
+$('btn-delete').onclick=async()=>{
+  if(!currentName) return;
+  if(!confirm('Supprimer l\'intention "'+currentName+'" ?')) return;
+  allIntents = allIntents.filter(i=>i.name!==currentName);
+  currentName=null;
+  await saveIntents();
+  $('editor').style.display='none';
+  $('editor-empty').style.display='block';
+  load();
+  toast('Intention supprimée');
+};
+
+async function saveIntents(){
+  const payload = { intents: allIntents };
+  const r = await fetch('/api/intents', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+  });
+  if(!r.ok) toast('Erreur sauvegarde', true);
+}
+
+// ============================================================
+//  Test
+// ============================================================
+$('btn-test').onclick=async()=>{
+  const text=$('t-input').value.trim();
+  if(!text) return;
+  const r = await fetch('/api/predict', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+  const data = await r.json();
+  const isFallback = data.intent==='fallback';
+  $('t-result').innerHTML = `<div class="result ${isFallback?'fallback':''}">
+    Intention : <b>${escapeHtml(data.intent)}</b></div>`;
+};
+
+$('t-input').addEventListener('keydown',e=>{ if(e.key==='Enter') $('btn-test').click(); });
+
+// ============================================================
+//  Produits
+// ============================================================
+let prodData=null;
+async function loadProducts(){
+  const r=await fetch('/api/products');
+  prodData=await r.json();
+  renderProducts();
+}
+function renderProducts(){
+  const box=$('prod-list');
+  box.innerHTML='<div class="hint">Produits :</div>';
+  prodData.products.forEach((p,idx)=>{
+    const div=document.createElement('div');
+    div.className='list-item';
+    const inp=document.createElement('input');
+    inp.value=p.name; inp.dataset.idx=idx;
+    const alias=document.createElement('input');
+    alias.value=(p.aliases||[]).join(', ');
+    alias.placeholder='alias (arabe)';
+    alias.dataset.alias=idx;
+    div.appendChild(inp); div.appendChild(alias);
+    box.appendChild(div);
+  });
+}
+$('btn-save-prod').onclick=async()=>{
+  document.querySelectorAll('#prod-list .list-item input').forEach(inp=>{
+    const idx=inp.dataset.idx!==undefined?+inp.dataset.idx:null;
+    if(idx!==null && inp.dataset.idx!==undefined && inp.dataset.alias===undefined) return;
+  });
+  // rebuild aliases
+  prodData.products.forEach((p,idx)=>{
+    const nameInput=document.querySelector(`#prod-list input[data-idx="${idx}"]`);
+    const aliasInput=document.querySelector(`#prod-list input[data-alias="${idx}"]`);
+    if(nameInput) p.name=nameInput.value.trim();
+    if(aliasInput) p.aliases=aliasInput.value.split(',').map(a=>a.trim()).filter(Boolean);
+  });
+  const r=await fetch('/api/products',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(prodData)});
+  toast(r.ok?'✅ Catalogue enregistré':'Erreur', !r.ok);
+};
+
+// ============================================================
+//  Init
+// ============================================================
+load();
+loadProducts();
+</script>
+</body>
+</html>

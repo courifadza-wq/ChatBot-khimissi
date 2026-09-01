@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Bot WhatsApp — Formulaire simple</title>
+<style>
+  :root{--bg:#0f172a;--panel:#1e293b;--line:#334155;--txt:#e2e8f0;--muted:#94a3b8;--accent:#22d3ee;--green:#34d399;--red:#f87171;--amber:#fbbf24}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+  header{background:linear-gradient(135deg,#0e7490,#1e40af);padding:16px 22px}
+  header h1{font-size:19px}
+  header .sub{font-size:13px;color:#dbeafe;opacity:.9}
+  main{max-width:1100px;margin:0 auto;padding:18px}
+  .banner{background:#164e63;border:1px solid var(--accent);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;line-height:1.6}
+  .banner b{color:var(--accent)}
+  .banner .btn{background:var(--accent);color:#062a2e;border:none;padding:8px 16px;border-radius:8px;font-weight:700;cursor:pointer;margin-top:8px;font-size:13px}
+  .grid{display:grid;grid-template-columns:270px 1fr;gap:16px}
+  @media(max-width:800px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:12px}
+  button{background:var(--accent);color:#062a2e;border:none;padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px}
+  button:hover{filter:brightness(1.1)}
+  button.danger{background:var(--red);color:#fff}
+  button.small{padding:4px 9px;font-size:12px}
+  button.secondary{background:#334155;color:var(--txt);border:1px solid var(--line)}
+  input,textarea{width:100%;background:#0f172a;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit}
+  input:focus,textarea:focus{outline:2px solid var(--accent)}
+  .intent-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+  .intent-item:hover{background:#273449}
+  .intent-item.active{background:#164e63;border-color:var(--accent)}
+  .intent-item .cnt{font-size:11px;background:#0ea5e9;color:#fff;padding:1px 7px;border-radius:10px}
+  .pattern-row{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+  .pattern-row input{flex:1}
+  .toolbar{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .hint{font-size:12px;color:var(--muted);margin:6px 0}
+  .status{position:fixed;bottom:18px;right:18px;background:var(--green);color:#022c22;padding:12px 18px;border-radius:10px;font-weight:700;opacity:0;transition:.3s;z-index:99}
+  .status.show{opacity:1}
+  .status.err{background:var(--red);color:#fff}
+  .err-banner{background:#7f1d1d;border:1px solid var(--red);color:#fecaca;border-radius:8px;padding:10px;margin-bottom:10px;font-size:13px;display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧠 Admin Bot WhatsApp — Formulaire</h1>
+  <div class="sub">Ajoute des phrases en français, arabe ou derja</div>
+</header>
+
+<main>
+  <div class="banner">
+    <b>⚙️ Mode d'emploi :</b> Ce formulaire sauvegarde directement dans <code>data/intents.yaml</code>
+    via le petit serveur local. Ajoute ou modifie des phrases, puis clique sur
+    <b>« 💾 Sauvegarder »</b> — c'est écrit immédiatement dans le fichier sur ton disque.
+    <div id="conn-error" class="err-banner">⚠️ Serveur non connecté. Lance <code>py admin_server.py</code> puis rechargé cette page.</div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Intentions</h2>
+      <button class="secondary" style="width:100%;margin-bottom:10px" onclick="newIntent()">+ Nouvelle intention</button>
+      <div id="intent-list"></div>
+      <div class="hint" id="file-status" style="margin-top:10px">Chargement…</div>
+    </div>
+
+    <div class="panel">
+      <h2 id="edit-title">Éditer</h2>
+      <div id="editor-empty" class="hint">Clique sur une intention pour l'éditer, ou crée-en une nouvelle.</div>
+      <div id="editor" style="display:none">
+        <label class="hint">Nom de l'intention</label>
+        <input id="e-name" placeholder="ex : recharge">
+        <label class="hint" style="display:block;margin-top:10px">Phrases d'exemple (fr / arabe / derja)</label>
+        <div id="e-patterns"></div>
+        <button class="secondary" style="margin-top:6px" onclick="addPattern()">+ Ajouter une phrase</button>
+        <div class="toolbar">
+          <button onclick="saveAll()" style="background:var(--green);color:#022c22">💾 Sauvegarder tout</button>
+          <button class="danger" onclick="deleteCurrent()">🗑 Supprimer cette intention</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="status" id="status"></div>
+
+<script>
+var intents = {};      // {name:{patterns:[...]}}
+var currentName = null;
+
+var $=function(id){return document.getElementById(id);};
+function toast(msg,err){ var t=$('status'); t.textContent=msg; t.className='status show'+(err?' err':''); clearTimeout(toast._t); toast._t=setTimeout(function(){t.className='status';},2200); }
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+function renderList(){
+  var el=$('intent-list'); el.innerHTML='';
+  Object.keys(intents).sort().forEach(function(name){
+    var d=document.createElement('div');
+    d.className='intent-item'+(name===currentName?' active':'');
+    var cnt=(intents[name].patterns||[]).length;
+    d.innerHTML='<span>'+esc(name)+'</span><span class="cnt">'+cnt+'</span>';
+    d.onclick=function(){openEditor(name);};
+    el.appendChild(d);
+  });
+}
+function syncCurrent(){
+  if(!currentName || $('editor').style.display==='none') return;
+  var name=$('e-name').value.trim()||currentName;
+  var pats=collect();
+  if(name!==currentName){ delete intents[currentName]; currentName=name; }
+  intents[currentName]={patterns:pats};
+  renderList();
+}
+function openEditor(name){
+  syncCurrent();
+  currentName=name;
+  $('editor-empty').style.display='none'; $('editor').style.display='block';
+  $('e-name').value=name; $('edit-title').textContent='Éditer — '+name;
+  renderPatterns(intents[name].patterns||[]);
+  renderList();
+}
+function renderPatterns(pats){
+  var box=$('e-patterns'); box.innerHTML='';
+  pats.forEach(function(p){ addPatternInput(p); });
+}
+function addPatternInput(val){
+  var box=$('e-patterns');
+  var row=document.createElement('div'); row.className='pattern-row';
+  var inp=document.createElement('input'); inp.value=val||''; inp.placeholder='phrase (fr, arabe, derja)…';
+  var del=document.createElement('button'); del.className='danger small'; del.textContent='✕'; del.onclick=function(){row.remove();};
+  row.appendChild(inp); row.appendChild(del); box.appendChild(row);
+}
+function addPattern(){ addPatternInput(''); }
+function collect(){ return Array.prototype.map.call($('e-patterns').querySelectorAll('input'),function(i){return i.value.trim();}).filter(Boolean); }
+function newIntent(){
+  var n=prompt("Nom de la nouvelle intention (ex : recharge) :");
+  if(!n||!n.trim()) return;
+  n=n.trim();
+  if(intents[n]){ toast('Cette intention existe déjà',true); return; }
+  intents[n]={patterns:[]};
+  openEditor(n);
+}
+function deleteCurrent(){
+  if(!currentName||!confirm('Supprimer "'+currentName+'" ?')) return;
+  delete intents[currentName]; currentName=null;
+  $('editor').style.display='none'; $('editor-empty').style.display='block';
+  renderList();
+  saveAll();   // <-- sauvegarde la suppression dans intents.yaml
+}
+
+// ============================================================
+//  Communication avec le serveur (écrit réellement dans intents.yaml)
+// ============================================================
+async function loadData(){
+  try{
+    var r=await fetch('/api/data');
+    var d=await r.json();
+    intents=d.intents||{};
+    renderList();
+    $('file-status').textContent='✓ '+Object.keys(intents).length+' intentions chargées depuis intents.yaml';
+    $('conn-error').style.display='none';
+    toast('Chargé');
+  }catch(e){
+    $('conn-error').style.display='block';
+    $('file-status').textContent='Serveur non connecté';
+  }
+}
+async function saveAll(){
+  syncCurrent();
+  try{
+    var r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({intents:intents})});
+    var d=await r.json();
+    if(d.ok){ toast('💾 Enregistré : '+d.saved+' intentions dans intents.yaml'); }
+    else{ toast('Erreur: '+(d.error||'inconnue'),true); }
+  }catch(e){
+    $('conn-error').style.display='block';
+    toast('Serveur non connecté',true);
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>

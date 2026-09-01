@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environnement
+.env
+
+# Node (pour l'admin local, hors prod)
+node_modules/
+
+# Logs & fichiers temporaires
+*.log
+run_log.txt
+server_log.txt
+.DS_Store

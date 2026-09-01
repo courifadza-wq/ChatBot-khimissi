@@ -1,0 +1,70 @@
+Excellente question — c'est le moment clé pour passer de "mon bot tourne" à "mon bot répond sur WhatsApp". Voici le pas-à-pas complet pour **brancher ton app Python sur WhatsApp Business**.
+
+## L'idée en une phrase
+WhatsApp n'héberge pas ton code : ton app (sur ton VPS via Coolify) est un **serveur avec un webhook**. On dit à Meta : *"à chaque message reçu sur ce numéro WhatsApp, envoie-moi une requête HTTP sur `https://tonbot.com/webhook`"*. Et ton app répond en appelant l'API de Meta.
+
+```
+Client envoie message WhatsApp
+        │
+        ▼
+  [ Meta WhatsApp Cloud API ]  ──webhook──▶  Ton app (VPS)
+        ▲                                        │
+        │             réponse via Graph API      ▼
+        └──────────────────  Ton app répond + email commerçant
+```
+
+---
+
+## Étape 1 — Le compte Meta Business (déjà fait chez ton client ✅)
+Ton client a déjà un **Meta Business**. Il faut s'assurer que **toi aussi tu es admin** de l'application qu'on va créer.
+
+## Étape 2 — Créer l'application sur Meta for Developers
+1. Va sur **developers.facebook.com** → connecte-toi avec le compte Meta.
+2. **Mon app → Créer une app**.
+3. Choix du cas d'usage → **« Autre »** → type **« Entreprise »**.
+4. Donne un nom (ex : "Bot Magasin Client") et associe-le au **compte Business du client**.
+
+## Étape 3 — Ajouter le produit WhatsApp
+1. Dans ton app, clique **« Ajouter un produit » → WhatsApp**.
+2. Tu arrives sur le dashboard **WhatsApp** → bouton **« Commencer » / « Mise en route »**.
+
+## Étape 4 — Configurer le numéro
+Dans la section **API Setup** :
+- **« Tester » (test number)** : gratuit et instantané, idéal pour essayer.
+- **« Ajouter un numéro » (production)** : le vrai numéro du client, qui doit être **approuvé** (2–7 jours).
+
+> ⚠️ Si tu utilises le **numéro de test**, tu peux commencer immédiatement sans attendre l'approbation. Mais les **clients réels ne peuvent pas** écrire sur un numéro de test — c'est pour tes tests à toi.
+
+## Étape 5 — Récupérer les 2 identifiants
+Dans le dashboard WhatsApp, note :
+- **Phone Number ID** → va dans `WHATSAPP_PHONE_ID`
+- **Token d'accès** → crée un **System User token permanent** (plus stable qu'un token temporaire) → va dans `WHATSAPP_TOKEN`
+
+## Étape 6 — Déployer ton app + créer le webhook
+1. **Déploie ton code sur le VPS via Coolify** (Docker) → tu obtiens une URL HTTPS, ex : `https://botmagasin.domaine.com`.
+2. Dans ton app Meta → **Configuration → Webhook** :
+   - **URL de rappel** : `https://botmagasin.domaine.com/webhook`
+   - **Token de vérification** : `WHATSAPP_VERIFY_TOKEN` (celui de ton `.env`)
+   - Clique **« Vérifier et enregistrer »**.
+3. **S'abonner aux champs** : coche au minimum **`messages`**.
+
+## Étape 7 — Tester
+Envoie un WhatsApp au numéro du bot depuis ton téléphone → il doit répondre.
+
+---
+
+## 📋 Récap : les 3 choses de TON code que tu branches sur Meta
+
+| Dans ton `.env` | Où le trouver chez Meta |
+|---|---|
+| `WHATSAPP_TOKEN` | System User token |
+| `WHATSAPP_PHONE_ID` | Dashboard WhatsApp → Phone number ID |
+| `WHATSAPP_VERIFY_TOKEN` | **Tu le choisis toi-même** (ex: `monsecret123`), tu le mets dans le webhook Meta |
+
+---
+
+Veux-tu que je te détaille une de ces étapes précisément ? Par exemple :
+- **Comment créer le System User token permanent** (le point le plus délicat), ou
+- **Comment déployer sur Coolify** et obtenir l'URL HTTPS avant de créer le webhook.
+
+Dis-moi par quoi on continue.

@@ -1,0 +1,26 @@
+# ============================================================
+#  Dépendances Python
+# ============================================================
+# Web / API
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+python-dotenv==1.0.1
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# HTTP + email
+httpx==0.28.1
+requests==2.32.3
+
+# YAML (catalogue produits + intentions)
+PyYAML==6.0.2
+
+# NLP / ML (optionnel, "hybrid" mode)
+scikit-learn==1.6.1
+
+# Configuration
+python-dotenv
+
+# Génération de fichiers Excel (commandes)
+openpyxl==3.1.5

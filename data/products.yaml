@@ -1,0 +1,44 @@
+# ============================================================
+#  Catalogue produits du client (à adapter)
+#  Utilisé pour répondre aux questions et construire la commande
+# ============================================================
+store:
+  name: "Mon Magasin"
+  description: "Magasin de produits physiques — vente en ligne et livraison."
+
+delivery:
+  price: 1500          # frais de livraison (DZD ou autre monnaie)
+  free_above: 10000    # livraison gratuite au-dessus de ce montant
+  zones: ["Alger", "Oran", "Constantine", "Annaba"]
+  delay: "1 à 3 jours ouvrés"
+
+products:
+  - id: p1
+    name: "Casque Bluetooth Pro"
+    price: 6500
+    category: "Electronique"
+    description: "Casque sans fil, réduction de bruit, 30h d'autonomie."
+    aliases: ["casque", "كاسك", "سماعة", "بلوتوث", "كاسك بلوتوث", "headphone"]
+  - id: p2
+    name: "T-shirt Premium"
+    price: 2200
+    category: "Vêtements"
+    description: "Coton bio, tailles S à XXL."
+    aliases: ["t-shirt", "tshirt", "تيشيرت", "قميص", "تيشيرت بريميوم", "tee shirt"]
+  - id: p3
+    name: "Chargeur USB-C 65W"
+    price: 3800
+    category: "Accessoires"
+    description: "Chargeur rapide compatible smartphone et PC."
+    aliases: ["chargeur", "شاحن", "usb", "شاحن سريع"]
+  - id: p4
+    name: "Sneakers Sport"
+    price: 9800
+    category: "Chaussures"
+    description: "Légères et confortables, pointures 39 à 45."
+    aliases: ["sneakers", "chaussures", "حذاء", "سبورت", "باسكت", "سكريت", "chaussure"]
+
+payment:
+  - "Paiement à la livraison (COD)"
+  - "Paiement en ligne (CB)"
+  - "Virement / EDahabia"
