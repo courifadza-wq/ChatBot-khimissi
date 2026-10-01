@@ -96,14 +96,45 @@ def process(phone: str, message: str, intent: str) -> str | None:
 
     # Démarrage d'une nouvelle commande
     if state == ST_NEW and intent == "order_start":
+        # ── Mémoire long-terme : charger le profil client ──
+        client = None
+        try:
+            from .database import get_client
+            client = get_client(phone)
+        except Exception:
+            pass
+
         sess["state"] = ST_NAME
+        sess["client"] = client  # stocker pour les étapes suivantes
+
+        if client and client.get("name"):
+            # Client connu : proposer de réutiliser son nom
+            return (
+                f"Parfait 🛒 ! Je vous reconnais, *{client['name']}* !\n\n"
+                "Voulez-vous commander avec les mêmes informations qu'avant ?\n"
+                f"• Nom : *{client['name']}*\n"
+                f"• Adresse : *{client['address']}*\n\n"
+                "Répondez *oui* pour confirmer, ou envoyez votre *nouveau nom* pour changer."
+            )
         return _ask_name()
 
-    # À chaque étape, on stocke l'info puis on pose la question suivante
+    # ── Gestion du pré-remplissage (client connu) ──
+    client = sess.get("client")
     if state == ST_NAME:
-        order.name = message.strip()
-        sess["state"] = ST_ADDRESS
-        return _ask_address()
+        low = message.strip().lower()
+        if client and client.get("name") and low in ("oui", "yes", "ok", "نعم", "اه", "ايوا"):
+            # Réutilise les infos enregistrées → sauter nom ET adresse
+            order.name = client["name"]
+            order.address = client["address"]
+            sess["state"] = ST_ITEMS
+            return (
+                f"Parfait ! Utilisation de :\n"
+                f"👤 *{order.name}*  📍 *{order.address}*\n\n"
+            ) + _ask_items()
+        else:
+            order.name = message.strip()
+            sess["state"] = ST_ADDRESS
+            return _ask_address()
 
     if state == ST_ADDRESS:
         order.address = message.strip()
@@ -117,16 +148,23 @@ def process(phone: str, message: str, intent: str) -> str | None:
         for name, qty in items:
             order.add_item(name, qty)
         sess["state"] = ST_PAYMENT
+
+        # Si le client a un moyen de paiement préféré, le suggérer
+        if client and client.get("preferred_payment"):
+            return (
+                f"Comment souhaitez-vous payer ?\n"
+                f"(Vous avez utilisé *{client['preferred_payment']}* la dernière fois)\n\n"
+            ) + "".join(f"• {p}\n" for p in get_payment()).rstrip()
         return _ask_payment()
 
     if state == ST_PAYMENT:
         order.payment = message.strip()
         sess["state"] = ST_CONFIRM
-        return _ask_confirm()
+        return order.summary() + "\n\n" + _ask_confirm()
 
     if state == ST_CONFIRM:
         low = message.strip().lower()
-        if low in ("oui", "yes", "ok", "confirmer", "نعم", "اه", "ايوا", "wa7ed", "yes") or low.startswith("نعم"):
+        if low in ("oui", "yes", "ok", "confirmer", "نعم", "اه", "ايوا", "wa7ed") or low.startswith("نعم"):
             return "CONFIRMED"  # signal : la commande est prête
         reset_session(phone)
         return "Commande annulée. À bientôt 👋"

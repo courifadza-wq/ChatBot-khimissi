@@ -29,11 +29,31 @@ def _payment_text() -> str:
     return "\n".join(lines)
 
 
-def reply_for(intent: str, message: str = "") -> str | None:
-    """Retourne la réponse texte pour une intention (None si à gérer ailleurs)."""
+def reply_for(intent: str, message: str = "", client: dict | None = None) -> str | None:
+    """Retourne la réponse texte pour une intention (None si à gérer ailleurs).
+
+    Args:
+        intent:  Intention détectée par le classifieur NLP.
+        message: Texte brut du client (pour chercher un produit mentionné).
+        client:  Profil long-terme du client (depuis SQLite), ou None si inconnu.
+    """
     s = get_store()
 
     if intent == "greeting":
+        # ── Salutation personnalisée pour les clients connus ──
+        if client and client.get("name"):
+            name = client["name"]
+            count = client.get("order_count", 0)
+            if count >= 1:
+                return (
+                    f"Bon retour *{name}* ! 🎉 Content de vous revoir !\n"
+                    f"_(Vous avez passé {count} commande{'s' if count > 1 else ''} chez nous)_\n\n"
+                    "Comment puis-je vous aider aujourd'hui ?\n"
+                    "• 📦 Catalogue / Prix\n"
+                    "• 🚚 Livraison\n"
+                    "• 💳 Paiement\n"
+                    "• 🛒 Commander"
+                )
         return (
             f"Bonjour 👋 Bienvenue chez *{s['name']}* !\n\n"
             "Je peux vous aider avec :\n"

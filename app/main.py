@@ -5,6 +5,7 @@
 # ============================================================
 import logging
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
@@ -14,11 +15,24 @@ from .nlp import classifier
 from .responses import reply_for
 from .order import process, reset_session, build_email_body, Order
 from .email_sender import send_order_email
+from .database import init_db, get_client, touch_client, upsert_client, save_order
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("main")
 
-app = FastAPI(title="Bot WhatsApp — Ventes & Commandes")
+
+# -----------------------------------------------------------
+# Initialisation de la base de données au démarrage
+# -----------------------------------------------------------
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Initialisation de la mémoire long-terme (SQLite)…")
+    init_db()
+    yield
+    logger.info("Arrêt du serveur.")
+
+
+app = FastAPI(title="Bot WhatsApp — Ventes & Commandes", lifespan=lifespan)
 
 
 @app.get("/webhook", response_class=PlainTextResponse)
@@ -35,7 +49,7 @@ async def webhook_verify(
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "nl_mode": settings.NL_MODE}
 
 
 @app.post("/webhook")
@@ -59,9 +73,17 @@ async def webhook_receive(request: Request):
 
     phone = message["from"]
     text = message["text"]["body"]
-    message_id = message["id"]
 
     logger.info("Message de %s : %s", phone, text)
+
+    # Charger le profil client (mémoire long-terme)
+    try:
+        client_profile = get_client(phone)
+        if client_profile:
+            touch_client(phone)
+    except Exception as e:
+        logger.warning("Erreur lecture profil client : %s", e)
+        client_profile = None
 
     # 1) Détecter l'intention
     intent = classifier.predict(text)
@@ -72,20 +94,39 @@ async def webhook_receive(request: Request):
         reply = process(phone, text, intent)
         if reply == "CONFIRMED":
             order: Order = _current_order(phone)
-            ok = send_order_email(order)
-            send_text_message(
-                phone,
-                "✅ *Commande confirmée et enregistrée !*\n"
-                "Notre équipe vous contactera pour la livraison.\nMerci de votre confiance 🙏"
-            )
+            send_order_email(order)
+
+            # ── Mémoire long-terme : sauvegarder client + commande ──
+            try:
+                upsert_client(order.phone, order.name, order.address, order.payment)
+                save_order(order.phone, order.name, order.address,
+                           order.items, order.total, order.payment)
+                logger.info("Commande sauvegardée en base pour %s", order.phone)
+            except Exception as e:
+                logger.error("Erreur sauvegarde mémoire : %s", e)
+
+            # Message de confirmation personnalisé (client fidèle vs nouveau)
+            is_returning = client_profile and client_profile.get("order_count", 0) > 0
+            if is_returning:
+                confirmation_msg = (
+                    f"✅ *Commande confirmée, merci {order.name} !* 🙏\n"
+                    f"_(Commande n°{client_profile['order_count'] + 1} chez nous — on vous connaît bien 😊)_\n\n"
+                    "Notre équipe vous contactera pour la livraison."
+                )
+            else:
+                confirmation_msg = (
+                    "✅ *Commande confirmée et enregistrée !*\n"
+                    "Notre équipe vous contactera pour la livraison.\nMerci de votre confiance 🙏"
+                )
+            send_text_message(phone, confirmation_msg)
             reset_session(phone)
             return {"status": "ok"}
         if reply:
             send_text_message(phone, reply)
             return {"status": "ok"}
 
-    # 3) Sinon réponse normale selon l'intention
-    response = reply_for(intent, message=text)
+    # 3) Sinon réponse normale selon l'intention (avec profil client)
+    response = reply_for(intent, message=text, client=client_profile)
     if response is None:
         # Fallback intelligent : on ne reste jamais muet
         response = (

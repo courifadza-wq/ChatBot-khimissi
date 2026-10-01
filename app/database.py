@@ -1,0 +1,156 @@
+# ============================================================
+#  Mémoire long-terme du bot — SQLite
+#  Tables : clients, orders
+#  Le fichier .db est dans /app/data/ (volume persistant Coolify)
+# ============================================================
+import json
+import logging
+import sqlite3
+from datetime import datetime
+from pathlib import Path
+
+logger = logging.getLogger("database")
+
+# Le fichier SQLite sera dans le répertoire data/ (monté en volume dans Coolify)
+DB_PATH = Path(__file__).resolve().parent.parent / "data" / "bot_memory.db"
+
+
+# -----------------------------------------------------------
+# Connexion
+# -----------------------------------------------------------
+def _get_conn() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")   # sécurité concurrence
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
+# -----------------------------------------------------------
+# Initialisation (appelée au démarrage de l'app)
+# -----------------------------------------------------------
+def init_db() -> None:
+    """Crée les tables si elles n'existent pas encore."""
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with _get_conn() as conn:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS clients (
+                phone             TEXT PRIMARY KEY,
+                name              TEXT DEFAULT '',
+                address           TEXT DEFAULT '',
+                preferred_payment TEXT DEFAULT '',
+                order_count       INTEGER DEFAULT 0,
+                first_seen        TEXT,
+                last_seen         TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS orders (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                phone      TEXT NOT NULL,
+                name       TEXT,
+                address    TEXT,
+                items      TEXT,   -- JSON : [{"name":..., "qty":...}]
+                total      INTEGER DEFAULT 0,
+                payment    TEXT,
+                created_at TEXT,
+                FOREIGN KEY (phone) REFERENCES clients(phone)
+            );
+        """)
+    logger.info("Base de données initialisée : %s", DB_PATH)
+
+
+# -----------------------------------------------------------
+# Lecture d'un profil client
+# -----------------------------------------------------------
+def get_client(phone: str) -> dict | None:
+    """Retourne le profil du client ou None s'il est inconnu."""
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM clients WHERE phone = ?", (phone,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+# -----------------------------------------------------------
+# Sauvegarde / mise à jour d'un profil client
+# -----------------------------------------------------------
+def upsert_client(phone: str, name: str, address: str, payment: str) -> None:
+    """Crée ou met à jour le profil client après une commande confirmée."""
+    now = datetime.now().isoformat()
+    with _get_conn() as conn:
+        existing = conn.execute(
+            "SELECT phone FROM clients WHERE phone = ?", (phone,)
+        ).fetchone()
+        if existing:
+            conn.execute(
+                """UPDATE clients
+                   SET name = ?, address = ?, preferred_payment = ?,
+                       order_count = order_count + 1, last_seen = ?
+                   WHERE phone = ?""",
+                (name, address, payment, now, phone),
+            )
+            logger.info("Client mis à jour : %s (%s)", name, phone)
+        else:
+            conn.execute(
+                """INSERT INTO clients
+                   (phone, name, address, preferred_payment, order_count, first_seen, last_seen)
+                   VALUES (?, ?, ?, ?, 1, ?, ?)""",
+                (phone, name, address, payment, now, now),
+            )
+            logger.info("Nouveau client enregistré : %s (%s)", name, phone)
+        conn.commit()
+
+
+# -----------------------------------------------------------
+# Sauvegarde d'une commande
+# -----------------------------------------------------------
+def save_order(phone: str, name: str, address: str,
+               items: list, total: int, payment: str) -> int:
+    """Enregistre la commande et retourne son ID."""
+    now = datetime.now().isoformat()
+    with _get_conn() as conn:
+        cursor = conn.execute(
+            """INSERT INTO orders (phone, name, address, items, total, payment, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (phone, name, address, json.dumps(items, ensure_ascii=False), total, payment, now),
+        )
+        conn.commit()
+        logger.info("Commande #%d enregistrée pour %s", cursor.lastrowid, phone)
+        return cursor.lastrowid
+
+
+# -----------------------------------------------------------
+# Historique des commandes d'un client
+# -----------------------------------------------------------
+def get_client_orders(phone: str, limit: int = 5) -> list[dict]:
+    """Retourne les N dernières commandes d'un client."""
+    with _get_conn() as conn:
+        rows = conn.execute(
+            """SELECT * FROM orders
+               WHERE phone = ?
+               ORDER BY created_at DESC
+               LIMIT ?""",
+            (phone, limit),
+        ).fetchall()
+        result = []
+        for row in rows:
+            d = dict(row)
+            try:
+                d["items"] = json.loads(d["items"])
+            except (json.JSONDecodeError, TypeError):
+                d["items"] = []
+            result.append(d)
+        return result
+
+
+# -----------------------------------------------------------
+# Mise à jour de la date de dernière visite
+# -----------------------------------------------------------
+def touch_client(phone: str) -> None:
+    """Met à jour last_seen sans modifier les autres champs."""
+    now = datetime.now().isoformat()
+    with _get_conn() as conn:
+        conn.execute(
+            "UPDATE clients SET last_seen = ? WHERE phone = ?", (now, phone)
+        )
+        conn.commit()

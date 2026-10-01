@@ -138,3 +138,62 @@ async def save_products(payload: dict):
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "nl_mode": settings.NL_MODE}
+
+
+# ----------------------------------------------------------
+# API Mémoire long-terme (lecture seule pour l'admin)
+# ----------------------------------------------------------
+@app.get("/api/clients")
+async def list_clients(limit: int = 50):
+    """Retourne la liste des clients connus (triés par dernière commande)."""
+    try:
+        from .database import _get_conn
+        with _get_conn() as conn:
+            rows = conn.execute(
+                """SELECT phone, name, address, preferred_payment,
+                          order_count, first_seen, last_seen
+                   FROM clients
+                   ORDER BY last_seen DESC
+                   LIMIT ?""",
+                (limit,),
+            ).fetchall()
+            return {"clients": [dict(r) for r in rows], "total": len(rows)}
+    except Exception as e:
+        return {"error": str(e), "clients": []}
+
+
+@app.get("/api/clients/{phone}/orders")
+async def client_orders(phone: str):
+    """Retourne l'historique des commandes d'un client."""
+    try:
+        from .database import get_client, get_client_orders
+        client = get_client(phone)
+        if not client:
+            return {"error": "Client introuvable", "orders": []}
+        orders = get_client_orders(phone, limit=20)
+        return {"client": client, "orders": orders}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/stats")
+async def stats():
+    """Statistiques globales : nombre de clients, commandes, CA total."""
+    try:
+        from .database import _get_conn
+        with _get_conn() as conn:
+            nb_clients = conn.execute("SELECT COUNT(*) FROM clients").fetchone()[0]
+            nb_orders  = conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
+            ca_total   = conn.execute("SELECT COALESCE(SUM(total), 0) FROM orders").fetchone()[0]
+            top_clients = conn.execute(
+                """SELECT name, phone, order_count
+                   FROM clients ORDER BY order_count DESC LIMIT 5"""
+            ).fetchall()
+        return {
+            "total_clients":  nb_clients,
+            "total_orders":   nb_orders,
+            "ca_total_dzd":   ca_total,
+            "top_clients":    [dict(r) for r in top_clients],
+        }
+    except Exception as e:
+        return {"error": str(e)}

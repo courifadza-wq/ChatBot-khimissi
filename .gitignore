@@ -4,8 +4,12 @@ __pycache__/
 .venv/
 venv/
 
-# Environnement
+# Environnement (NE JAMAIS COMMITER !)
 .env
+
+# Base de données SQLite (mémoire long-terme — reste sur le VPS)
+data/bot_memory.db
+data/backup_*.db
 
 # Node (pour l'admin local, hors prod)
 node_modules/
@@ -15,3 +19,6 @@ node_modules/
 run_log.txt
 server_log.txt
 .DS_Store
+
+# Excel généré automatiquement
+exemple_commande.xlsx
