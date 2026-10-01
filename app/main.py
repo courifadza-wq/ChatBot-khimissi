@@ -26,8 +26,12 @@ logger = logging.getLogger("main")
 # -----------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Initialisation de la mémoire long-terme (SQLite)…")
-    init_db()
+    try:
+        logger.info("Initialisation de la mémoire long-terme (SQLite)…")
+        init_db()
+        logger.info("Base de données prête.")
+    except Exception as e:
+        logger.error("Erreur init DB (mode dégradé sans mémoire) : %s", e)
     yield
     logger.info("Arrêt du serveur.")
 
