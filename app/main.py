@@ -273,8 +273,13 @@ async def webhook_receive(request: Request):
         from .database import search_products, count_products
         if count_products() > 0:
             params = parse_search_query(text)
-            # Chercher seulement si le message contient un vrai mot-clé
-            if params.get("keyword") or params.get("age_hint") or params.get("max_price"):
+            kw = params.get("keyword", "")
+            # Ignorer les mots trop courts (non, oui, ok…) pour éviter les faux positifs
+            if kw and max((len(w) for w in kw.split()), default=0) < 4:
+                kw = ""
+            if kw or params.get("age_hint") or params.get("max_price"):
+
+
                 results = search_products(
                     keyword=params.get("keyword", ""),
                     max_price=params.get("max_price", 0),
@@ -312,10 +317,12 @@ async def webhook_receive(request: Request):
 # Helpers pour retrouver la session en cours (ordre)
 # ------------------------------------------------------------------
 def _in_order_session(phone: str) -> bool:
-    from .order import _sessions
-    return phone in _sessions
+    from .database import load_order_session
+    from .order import ST_NEW
+    data = load_order_session(phone)
+    return data is not None and data.get("state", ST_NEW) != ST_NEW
 
 
 def _current_order(phone: str):
-    from .order import _sessions
-    return _sessions[phone]["order"]
+    from .order import get_session
+    return get_session(phone)["order"]

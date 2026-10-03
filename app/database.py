@@ -70,8 +70,50 @@ def init_db() -> None:
                 ON products (designation);
             CREATE INDEX IF NOT EXISTS idx_products_category
                 ON products (category);
+
+            CREATE TABLE IF NOT EXISTS order_sessions (
+                phone      TEXT PRIMARY KEY,
+                state      INTEGER NOT NULL,
+                order_json TEXT NOT NULL DEFAULT '{}',
+                client_json TEXT DEFAULT NULL,
+                updated_at TEXT DEFAULT (datetime('now'))
+            );
         """)
     logger.info("Base de données initialisée : %s", DB_PATH)
+
+
+# -----------------------------------------------------------
+# Sessions de commande persistantes (survie aux redémarrages)
+# -----------------------------------------------------------
+import json as _json
+
+
+def save_order_session(phone: str, state: int, order_data: dict, client_data=None) -> None:
+    with _get_conn() as conn:
+        conn.execute("""
+            INSERT OR REPLACE INTO order_sessions (phone, state, order_json, client_json, updated_at)
+            VALUES (?, ?, ?, ?, datetime('now'))
+        """, (phone, state, _json.dumps(order_data), _json.dumps(client_data) if client_data else None))
+
+
+def load_order_session(phone: str) -> dict | None:
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT state, order_json, client_json FROM order_sessions WHERE phone = ?",
+            (phone,)
+        ).fetchone()
+        if row:
+            return {
+                "state": row["state"],
+                "order": _json.loads(row["order_json"]),
+                "client": _json.loads(row["client_json"]) if row["client_json"] else None,
+            }
+        return None
+
+
+def delete_order_session(phone: str) -> None:
+    with _get_conn() as conn:
+        conn.execute("DELETE FROM order_sessions WHERE phone = ?", (phone,))
 
 
 # -----------------------------------------------------------

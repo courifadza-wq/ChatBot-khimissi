@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .catalog import get_payment, find_product
+from .database import save_order_session, load_order_session, delete_order_session
 
 
 @dataclass
@@ -15,7 +16,7 @@ class Order:
     phone: str
     name: str = ""
     address: str = ""
-    items: list = field(default_factory=list)  # [{name, qty, price}]
+    items: list = field(default_factory=list)
     payment: str = ""
     total: int = 0
 
@@ -35,6 +36,20 @@ class Order:
             total += price * it["qty"]
         self.total = total
 
+    def to_dict(self) -> dict:
+        return {"phone": self.phone, "name": self.name, "address": self.address,
+                "items": self.items, "payment": self.payment, "total": self.total}
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Order":
+        o = cls(phone=data.get("phone", ""))
+        o.name = data.get("name", "")
+        o.address = data.get("address", "")
+        o.items = data.get("items", [])
+        o.payment = data.get("payment", "")
+        o.total = data.get("total", 0)
+        return o
+
     def summary(self) -> str:
         lines = ["📋 *Récapitulatif de votre commande* :", ""]
         for it in self.items:
@@ -50,19 +65,21 @@ class Order:
 # États possibles du dialogue
 ST_NEW, ST_NAME, ST_ADDRESS, ST_ITEMS, ST_PAYMENT, ST_CONFIRM = range(6)
 
-# Un état par numéro de téléphone (en mémoire).
-# Pour la production multi-instance, remplacer par Redis.
-_sessions: dict[str, dict] = {}
-
 
 def get_session(phone: str) -> dict:
-    if phone not in _sessions:
-        _sessions[phone] = {"state": ST_NEW, "order": Order(phone=phone)}
-    return _sessions[phone]
+    data = load_order_session(phone)
+    if data:
+        return {"state": data["state"], "order": Order.from_dict(data["order"]), "client": data.get("client")}
+    return {"state": ST_NEW, "order": Order(phone=phone), "client": None}
+
+
+def _persist(phone: str, sess: dict) -> None:
+    """Sauvegarde la session dans SQLite."""
+    save_order_session(phone, sess["state"], sess["order"].to_dict(), sess.get("client"))
 
 
 def reset_session(phone: str):
-    _sessions.pop(phone, None)
+    delete_order_session(phone)
 
 
 def _ask_name() -> str:
@@ -104,19 +121,16 @@ def process(phone: str, message: str, intent: str) -> str | None:
 
     # Démarrage d'une nouvelle commande
     if state == ST_NEW and intent == "order_start":
-        # ── Mémoire long-terme : charger le profil client ──
         client = None
         try:
             from .database import get_client
             client = get_client(phone)
         except Exception:
             pass
-
         sess["state"] = ST_NAME
-        sess["client"] = client  # stocker pour les étapes suivantes
-
+        sess["client"] = client
+        _persist(phone, sess)
         if client and client.get("name"):
-            # Client connu : proposer de réutiliser son nom
             return (
                 f"Parfait 🛒 ! Je vous reconnais, *{client['name']}* !\n\n"
                 "Voulez-vous commander avec les mêmes informations qu'avant ?\n"
@@ -126,47 +140,43 @@ def process(phone: str, message: str, intent: str) -> str | None:
             )
         return _ask_name()
 
-    # ── Gestion du pré-remplissage (client connu) ──
     client = sess.get("client")
     if state == ST_NAME:
         low = message.strip().lower()
         if client and client.get("name") and low in ("oui", "yes", "ok", "نعم", "اه", "ايوا"):
-            # Réutilise les infos enregistrées → sauter nom ET adresse
             order.name = client["name"]
             order.address = client["address"]
             sess["state"] = ST_ITEMS
-            return (
-                f"Parfait ! Utilisation de :\n"
-                f"👤 *{order.name}*  📍 *{order.address}*\n\n"
-            ) + _ask_items()
+            _persist(phone, sess)
+            return (f"Parfait ! Utilisation de :\n👤 *{order.name}*  📍 *{order.address}*\n\n") + _ask_items()
         else:
             order.name = message.strip()
             sess["state"] = ST_ADDRESS
+            _persist(phone, sess)
             return _ask_address()
 
     if state == ST_ADDRESS:
-        # Détection retrait magasin
         _PICKUP_KEYWORDS = {"retrait", "magasin", "boutique", "recuperer", "récupérer",
-                            "viens", "passage", "je viens", "sur place"}
+                            "viens", "passage", "sur place"}
         low_addr = message.strip().lower()
         if any(kw in low_addr for kw in _PICKUP_KEYWORDS):
             order.address = "🏪 Retrait en magasin"
             sess["state"] = ST_ITEMS
+            _persist(phone, sess)
             return "Super ! Commande à retirer en boutique 🏪\n\n" + _ask_items()
         order.address = message.strip()
         sess["state"] = ST_ITEMS
+        _persist(phone, sess)
         return _ask_items()
-
 
     if state == ST_ITEMS:
         items = _parse_items(message)
         if not items:
-            return "Je n'ai pas compris le produit 😕. Exemple : *2 Casque Bluetooth Pro*. Réessayez."
+            return "Je n'ai pas compris le produit 😕. Exemple : *2 SLIP GUAINE SBG/C*. Réessayez."
         for name, qty in items:
             order.add_item(name, qty)
         sess["state"] = ST_PAYMENT
-
-        # Si le client a un moyen de paiement préféré, le suggérer
+        _persist(phone, sess)
         if client and client.get("preferred_payment"):
             return (
                 f"Comment souhaitez-vous payer ?\n"
@@ -177,16 +187,18 @@ def process(phone: str, message: str, intent: str) -> str | None:
     if state == ST_PAYMENT:
         order.payment = message.strip()
         sess["state"] = ST_CONFIRM
+        _persist(phone, sess)
         return order.summary() + "\n\n" + _ask_confirm()
 
     if state == ST_CONFIRM:
         low = message.strip().lower()
         if low in ("oui", "yes", "ok", "confirmer", "نعم", "اه", "ايوا", "wa7ed") or low.startswith("نعم"):
-            return "CONFIRMED"  # signal : la commande est prête
+            return "CONFIRMED"
         reset_session(phone)
         return "Commande annulée. À bientôt 👋"
 
     return None
+
 
 
 def _parse_items(message: str) -> list[tuple[str, int]]:
