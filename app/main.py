@@ -148,15 +148,44 @@ async def webhook_receive(request: Request):
     # 3) Sinon réponse normale selon l'intention (avec profil client)
     response = reply_for(intent, message=text, client=client_profile)
     if response is None:
-        # Fallback intelligent : on ne reste jamais muet
-        response = (
-            "Désolé, je n'ai pas bien compris 😅.\n"
-            "Vous pouvez me demander : les *produits*, les *prix*, la *livraison*, "
-            "le *paiement*, ou simplement *je veux commander*.\n"
-            "Ou demandez à parler à un *responsable*."
-        )
+        # ── Fallback intelligent : tenter une recherche produit ──────
+        from .catalog import parse_search_query, format_search_results
+        from .database import search_products, count_products
+        if count_products() > 0:
+            params = parse_search_query(text)
+            # Chercher seulement si le message contient un vrai mot-clé
+            if params.get("keyword") or params.get("age_hint") or params.get("max_price"):
+                results = search_products(
+                    keyword=params.get("keyword", ""),
+                    max_price=params.get("max_price", 0),
+                    min_price=params.get("min_price", 0),
+                    age_hint=params.get("age_hint", ""),
+                    limit=5,
+                )
+                if results:
+                    response = format_search_results(results, query=params.get("keyword", text))
+                else:
+                    response = (
+                        f"😕 Aucun résultat pour *\"{text}\"*.\n\n"
+                        "Essayez avec d'autres mots, ou tapez *catalogue* pour voir les catégories disponibles."
+                    )
+            else:
+                response = (
+                    "Désolé, je n'ai pas bien compris 😅.\n"
+                    "Vous pouvez me demander : les *produits*, les *prix*, la *livraison*, "
+                    "le *paiement*, ou simplement *je veux commander*.\n"
+                    "Ou demandez à parler à un *responsable*."
+                )
+        else:
+            response = (
+                "Désolé, je n'ai pas bien compris 😅.\n"
+                "Vous pouvez me demander : les *produits*, les *prix*, la *livraison*, "
+                "le *paiement*, ou simplement *je veux commander*.\n"
+                "Ou demandez à parler à un *responsable*."
+            )
     send_text_message(phone, response)
     return {"status": "ok"}
+
 
 
 # ------------------------------------------------------------------
