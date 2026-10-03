@@ -221,7 +221,7 @@ def _parse_items(message: str) -> list[tuple[str, int]]:
             continue
         prod = find_product(chunk)
         if prod:
-            results.append((prod["name"], qty))
+            results.append((prod["designation"], qty))
     return results
 
 
