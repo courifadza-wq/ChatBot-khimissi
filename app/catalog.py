@@ -1,12 +1,15 @@
 # ============================================================
-#  Chargement du catalogue produits (products.yaml)
+#  Catalogue produits — lecture YAML (config store) + recherche SQLite
 # ============================================================
 from functools import lru_cache
 
 import yaml
 
 from .config import settings
+from .database import search_products, count_products, get_categories
 
+
+# ── Données statiques depuis products.yaml ───────────────────────────────────
 
 @lru_cache()
 def load_catalog() -> dict:
@@ -25,47 +28,106 @@ def get_delivery() -> dict:
 
 
 @lru_cache()
-def get_products() -> list[dict]:
-    return load_catalog()["products"]
-
-
-@lru_cache()
 def get_payment() -> list[str]:
     return load_catalog()["payment"]
 
 
+# ── Recherche intelligente dans SQLite ───────────────────────────────────────
+
 def find_product(keyword: str) -> dict | None:
-    """Retourne le produit le plus proche d'un mot-clé (fr + arabe + derja)."""
-    kw = keyword.lower().strip()
-    if not kw:
-        return None
-    # 1) correspondance exacte / dans le nom ou la catégorie
-    for p in get_products():
-        if kw in p["name"].lower() or kw in p["category"].lower():
-            return p
-    # 2) correspondance via les alias (fr / arabe / derja)
-    for p in get_products():
-        for a in p.get("aliases", []):
-            if kw == a.lower() or a.lower() in kw or kw in a.lower():
-                return p
-    # 3) mots contenus l'un dans l'autre (nom + alias)
-    for p in get_products():
-        name = p["name"].lower()
-        tokens = kw.split()
-        if any(w in name for w in tokens) or any(w in kw for w in name.split()):
-            return p
-        for a in p.get("aliases", []):
-            if any(w in a.lower() for w in tokens) or any(w in kw for w in a.lower().split()):
-                return p
-    return None
+    """Retourne le premier produit correspondant au mot-clé."""
+    results = search_products(keyword=keyword, limit=1)
+    return results[0] if results else None
 
 
 def format_catalog() -> str:
-    """Liste lisible des produits pour envoyer sur WhatsApp."""
-    lines = [f"🛍️ *{get_store()['name']}* — Catalogue :", ""]
-    for p in get_products():
-        lines.append(f"• *{p['name']}* — {p['price']} DZD")
-        lines.append(f"  {p['description']}")
-    lines.append("")
-    lines.append("Pour commander, dis-moi *je veux commander* 📦")
+    """Affiche les catégories disponibles + nombre de produits."""
+    store = get_store()
+    categories = get_categories()
+    total = count_products()
+
+    lines = [f"🛍️ *{store['name']}* — Catalogue ({total} articles en stock)", ""]
+
+    if categories:
+        lines.append("📂 *Catégories disponibles :*")
+        for cat in categories:
+            lines.append(f"• {cat}")
+        lines.append("")
+        lines.append("💬 Précisez votre recherche, par exemple :")
+        lines.append("  _\"robe 6 mois\"_, _\"moins de 2000 DZD\"_, _\"chaussures enfant\"_")
+    else:
+        lines.append("Catalogue en cours de chargement... Réessayez dans un instant.")
+
     return "\n".join(lines)
+
+
+def format_search_results(results: list[dict], query: str = "") -> str:
+    """Formate une liste de produits pour affichage WhatsApp."""
+    if not results:
+        return (
+            "😕 Aucun produit trouvé pour cette recherche.\n\n"
+            "Essayez avec d'autres mots-clés ou demandez le *catalogue* pour voir les catégories."
+        )
+
+    header = f"🔍 *Résultats{f' pour \"{query}\"' if query else ''} :*\n"
+    lines = [header]
+
+    for p in results:
+        name = p["designation"]
+        # Tronquer si trop long
+        if len(name) > 45:
+            name = name[:42] + "..."
+        age = f" ({p['age_range']})" if p.get("age_range") else ""
+        lines.append(f"• *{name}*{age}")
+        lines.append(f"  💰 {int(p['price'])} DZD  |  Réf: {p['reference']}")
+
+    lines.append("")
+    lines.append("🛒 Pour commander, dites *je veux commander* en précisant la référence.")
+    return "\n".join(lines)
+
+
+def parse_search_query(message: str) -> dict:
+    """
+    Extrait les critères de recherche depuis le message du client.
+    Retourne un dict avec keyword, max_price, min_price, age_hint.
+    """
+    import re
+    msg = message.lower().strip()
+    params: dict = {"keyword": "", "max_price": 0, "min_price": 0, "age_hint": ""}
+
+    # Prix maximum : "moins de 2000", "max 1500", "pas plus de 3000"
+    m = re.search(r"(?:moins de|max|maximum|pas plus de)\s*(\d+)", msg)
+    if m:
+        params["max_price"] = float(m.group(1))
+
+    # Prix minimum : "plus de 1000", "min 500", "au moins 2000"
+    m = re.search(r"(?:plus de|min|minimum|au moins)\s*(\d+)", msg)
+    if m:
+        params["min_price"] = float(m.group(1))
+
+    # Tranche d'âge : "6 mois", "2 ans", "bébé", "nouveau-né"
+    m = re.search(r"(\d+)\s*(?:mois|ans?)", msg)
+    if m:
+        params["age_hint"] = m.group(0)
+
+    if re.search(r"bébé|bebe|nourrisson", msg):
+        params["age_hint"] = params["age_hint"] or "bébé"
+
+    if re.search(r"nouveau[- ]?né|newborn", msg):
+        params["age_hint"] = "0"
+
+    # Mot-clé : retirer les mots de prix/âge pour garder le nom du produit
+    keyword = re.sub(r"(?:moins de|plus de|max|min|au moins|pas plus de)\s*\d+\s*(?:dzd|da)?", "", msg)
+    keyword = re.sub(r"\d+\s*(?:mois|ans?)", "", keyword)
+    keyword = re.sub(r"(?:bébé|bebe|nouveau[- ]?né|enfant|fille|garçon)", "", keyword)
+    keyword = re.sub(r"(?:cherche|veux|voudrais|montres?[- ]?moi|je|un|une|des|le|la|les|du|de)", "", keyword)
+    keyword = re.sub(r"\s+", " ", keyword).strip()
+    params["keyword"] = keyword
+
+    return params
+
+
+# Alias pour compatibilité avec responses.py
+def get_products() -> list[dict]:
+    """Retourne quelques produits depuis la DB (pour compatibilité)."""
+    return search_products(limit=5)

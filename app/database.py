@@ -55,8 +55,106 @@ def init_db() -> None:
                 created_at TEXT,
                 FOREIGN KEY (phone) REFERENCES clients(phone)
             );
+
+            CREATE TABLE IF NOT EXISTS products (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                designation TEXT NOT NULL,
+                reference   TEXT,
+                stock       INTEGER DEFAULT 0,
+                price       REAL NOT NULL,
+                category    TEXT DEFAULT '',
+                age_range   TEXT DEFAULT ''
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_products_designation
+                ON products (designation);
+            CREATE INDEX IF NOT EXISTS idx_products_category
+                ON products (category);
         """)
     logger.info("Base de données initialisée : %s", DB_PATH)
+
+
+# -----------------------------------------------------------
+# Recherche de produits
+# -----------------------------------------------------------
+def search_products(
+    keyword: str = "",
+    category: str = "",
+    max_price: float = 0,
+    min_price: float = 0,
+    age_hint: str = "",
+    limit: int = 5,
+) -> list[dict]:
+    """Recherche des produits selon plusieurs critères combinés."""
+    with _get_conn() as conn:
+        conditions = ["stock > 0"]
+        params: list = []
+
+        if keyword:
+            for word in keyword.split():
+                if len(word) >= 3:
+                    conditions.append("designation LIKE ?")
+                    params.append(f"%{word.upper()}%")
+
+        if category:
+            conditions.append("category LIKE ?")
+            params.append(f"%{category}%")
+
+        if max_price > 0:
+            conditions.append("price <= ?")
+            params.append(max_price)
+
+        if min_price > 0:
+            conditions.append("price >= ?")
+            params.append(min_price)
+
+        if age_hint:
+            conditions.append("(age_range LIKE ? OR designation LIKE ?)")
+            params.extend([f"%{age_hint}%", f"%{age_hint}%"])
+
+        where = " AND ".join(conditions)
+        query = f"""
+            SELECT designation, reference, stock, price, category, age_range
+            FROM products
+            WHERE {where}
+            ORDER BY price ASC
+            LIMIT ?
+        """
+        params.append(limit)
+        rows = conn.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
+
+
+def count_products() -> int:
+    """Retourne le nombre total de produits en stock."""
+    with _get_conn() as conn:
+        row = conn.execute("SELECT COUNT(*) FROM products WHERE stock > 0").fetchone()
+        return row[0] if row else 0
+
+
+def get_categories() -> list[str]:
+    """Retourne la liste des catégories disponibles."""
+    with _get_conn() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT category FROM products WHERE stock > 0 AND category != '' ORDER BY category"
+        ).fetchall()
+        return [r[0] for r in rows]
+
+
+def bulk_insert_products(products: list[dict]) -> int:
+    """Insère en masse des produits. Retourne le nombre inséré."""
+    with _get_conn() as conn:
+        conn.execute("DELETE FROM products")
+        conn.executemany(
+            """INSERT INTO products (designation, reference, stock, price, category, age_range)
+               VALUES (:designation, :reference, :stock, :price, :category, :age_range)""",
+            products,
+        )
+        conn.commit()
+        count = conn.execute("SELECT COUNT(*) FROM products").fetchone()[0]
+        logger.info("%d produits importés dans la DB", count)
+        return count
+
 
 
 # -----------------------------------------------------------

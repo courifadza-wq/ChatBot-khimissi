@@ -73,27 +73,20 @@ def reply_for(intent: str, message: str = "", client: dict | None = None) -> str
     if intent == "products":
         return format_catalog()
 
-    if intent in ("prices", "product_info", "availability"):
-        # essayer de trouver un produit mentionné dans le message
-        prod = None
-        if message:
-            for p in get_products():
-                if p["name"].split()[0].lower() in message.lower():
-                    prod = p
-                    break
-        if not prod:
-            prod = find_product(message)
-        if prod:
-            return (
-                f"🔹 *{prod['name']}*\n"
-                f"💰 Prix : {prod['price']} DZD\n"
-                f"📋 {prod['description']}\n\n"
-                f"Dis-moi *je veux commander* pour le réserver !"
-            )
-        return (
-            "Voici notre catalogue :\n\n" + format_catalog() +
-            "\n\nPrécisez-moi quel produit vous intéresse et je vous donnerai le prix 😊"
+    if intent in ("prices", "product_info", "availability", "search"):
+        from .catalog import parse_search_query, format_search_results
+        from .database import search_products
+        # Parser la requête du client pour extraire les critères
+        params = parse_search_query(message) if message else {}
+        results = search_products(
+            keyword=params.get("keyword", ""),
+            max_price=params.get("max_price", 0),
+            min_price=params.get("min_price", 0),
+            age_hint=params.get("age_hint", ""),
+            limit=5,
         )
+        return format_search_results(results, query=params.get("keyword", ""))
+
 
     if intent == "delivery":
         return _delivery_text()
