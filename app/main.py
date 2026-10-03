@@ -105,9 +105,45 @@ async def webhook_receive(request: Request):
         logger.warning("Erreur lecture profil client : %s", e)
         client_profile = None
 
+    # 0) Pré-détection recherche produit (avant NLP pour éviter les faux intents)
+    from .catalog import parse_search_query, format_search_results, get_categories
+    from .database import search_products, count_products
+    _PRODUCT_KEYWORDS = {
+        "robe", "veste", "pantalon", "chaussure", "chaussures", "sandale",
+        "chaussette", "body", "pyjama", "pull", "manteau", "gilet", "combinaison",
+        "salopette", "jogging", "ensemble", "tenue", "short", "jean",
+        "sucette", "biberon", "tetine", "tétine", "couche", "couette",
+        "couverture", "bavoir", "bavette", "cuillere", "cuillère", "baignoire",
+        "jouet", "peluche", "doudou", "hochet", "tricycle", "vélo",
+        "savon", "creme", "crème", "shampoing", "lotion", "lingette",
+        "coffret", "cadeau", "kit", "vêtements", "vetements",
+        "alimentaire", "alimentation", "hygiène", "hygiene",
+        "puériculture", "puericulture"
+    }
+    _txt_lower = text.lower()
+    _has_product_kw = any(kw in _txt_lower for kw in _PRODUCT_KEYWORDS)
+    _has_age = any(p in _txt_lower for p in ["mois", " ans", "bébé", "bebe", "nourrisson", "nouveau-né"])
+    _has_price = any(p in _txt_lower for p in ["dzd", "da", "moins de", "plus de", "max", "budget"])
+    _has_category = any(c.lower() in _txt_lower for c in (get_categories() if count_products() > 0 else []))
+
+    if (_has_product_kw or _has_age or _has_price or _has_category) and not _in_order_session(phone):
+        params = parse_search_query(text)
+        results = search_products(
+            keyword=params.get("keyword", ""),
+            max_price=params.get("max_price", 0),
+            min_price=params.get("min_price", 0),
+            age_hint=params.get("age_hint", ""),
+            limit=5,
+        )
+        response = format_search_results(results, query=params.get("keyword", text))
+        send_text_message(phone, response)
+        logger.info("Recherche produit directe pour : %s", text)
+        return {"status": "ok"}
+
     # 1) Détecter l'intention
     intent = classifier.predict(text)
     logger.info("Intention détectée : %s", intent)
+
 
     # 2) Machine à états de commande (priorité si déjà en cours ou intent commande)
     if intent == "order_start" or _in_order_session(phone):
