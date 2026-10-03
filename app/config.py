@@ -22,6 +22,8 @@ class Settings:
     WHATSAPP_VERIFY_TOKEN: str = os.getenv("WHATSAPP_VERIFY_TOKEN", "")
     # Version de l'API Graph de Meta (à adapter si besoin)
     GRAPH_API_VERSION: str = os.getenv("GRAPH_API_VERSION", "v21.0")
+    # Numéro du propriétaire (format: 213XXXXXXXXX) pour les commandes secrètes
+    OWNER_PHONE: str = os.getenv("OWNER_PHONE", "213554698746")
 
     # ---- Email du commerçant (SMTP) ----
     SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")

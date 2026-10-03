@@ -16,6 +16,7 @@ from .responses import reply_for
 from .order import process, reset_session, build_email_body, Order
 from .email_sender import send_order_email
 from .database import init_db, get_client, touch_client, upsert_client, save_order
+from .human_handover import is_active, handle_owner_command
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("main")
@@ -79,6 +80,21 @@ async def webhook_receive(request: Request):
     text = message["text"]["body"]
 
     logger.info("Message de %s : %s", phone, text)
+
+    # ── Commandes du propriétaire (on / off / état) ──────────────────
+    owner_phone = settings.OWNER_PHONE.replace("+", "").replace(" ", "")
+    if phone == owner_phone:
+        owner_reply = handle_owner_command(text)
+        if owner_reply:
+            send_text_message(phone, owner_reply)
+            return {"status": "ok"}
+        # Si ce n'est pas une commande → le propriétaire peut tester le bot normalement
+
+    # ── Bot désactivé → ignorer les messages des clients ────────────
+    if not is_active() and phone != owner_phone:
+        logger.info("Bot OFF — message de %s ignoré", phone)
+        return {"status": "bot_off"}
+
 
     # Charger le profil client (mémoire long-terme)
     try:
