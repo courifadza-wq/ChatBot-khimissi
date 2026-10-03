@@ -20,21 +20,12 @@ class Order:
     payment: str = ""
     total: int = 0
 
-    def add_item(self, name: str, qty: int):
-        self.items.append({"name": name, "qty": qty})
-        self._recompute_total()
+    def add_item(self, name: str, qty: int, price: int = 0):
+        self.items.append({"name": name, "qty": qty, "price": price})
+        self.total += price * qty
 
     def _recompute_total(self):
-        from .catalog import get_products
-        total = 0
-        for it in self.items:
-            price = 0
-            for p in get_products():
-                if p["designation"].lower() in it["name"].lower() or it["name"].lower() in p["designation"].lower():
-                    price = p["price"]
-                    break
-            total += price * it["qty"]
-        self.total = total
+        self.total = sum(it.get("price", 0) * it["qty"] for it in self.items)
 
     def to_dict(self) -> dict:
         return {"phone": self.phone, "name": self.name, "address": self.address,
@@ -173,8 +164,8 @@ def process(phone: str, message: str, intent: str) -> str | None:
         items = _parse_items(message)
         if not items:
             return "Je n'ai pas compris le produit 😕. Exemple : *2 SLIP GUAINE SBG/C*. Réessayez."
-        for name, qty in items:
-            order.add_item(name, qty)
+        for name, qty, price in items:
+            order.add_item(name, qty, price)
         sess["state"] = ST_PAYMENT
         _persist(phone, sess)
         if client and client.get("preferred_payment"):
@@ -221,7 +212,7 @@ def _parse_items(message: str) -> list[tuple[str, int]]:
             continue
         prod = find_product(chunk)
         if prod:
-            results.append((prod["designation"], qty))
+            results.append((prod["designation"], qty, int(prod.get("price", 0))))
     return results
 
 
