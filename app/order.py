@@ -70,11 +70,19 @@ def _ask_name() -> str:
 
 
 def _ask_address() -> str:
-    return "Merci ! Quelle est votre *adresse de livraison* (ville + adresse) ?"
+    return (
+        "Merci ! Quelle est votre *adresse de livraison* (ville + adresse) ?\n\n"
+        "🏪 Ou répondez *retrait magasin* si vous venez récupérer en boutique."
+    )
 
 
 def _ask_items() -> str:
-    return "Quel(s) produit(s) voulez-vous ? (ex : *2 Casque Bluetooth Pro*, *1 T-shirt Premium*)\n\nVous pouvez en donner plusieurs."
+    return (
+        "Quel(s) produit(s) voulez-vous ?\n"
+        "(ex : *2 SLIP GUAINE SBG/C*, *1 ROBE FIL SABY R301*)\n\n"
+        "Vous pouvez en donner plusieurs."
+    )
+
 
 
 def _ask_payment() -> str:
@@ -137,9 +145,18 @@ def process(phone: str, message: str, intent: str) -> str | None:
             return _ask_address()
 
     if state == ST_ADDRESS:
+        # Détection retrait magasin
+        _PICKUP_KEYWORDS = {"retrait", "magasin", "boutique", "recuperer", "récupérer",
+                            "viens", "passage", "je viens", "sur place"}
+        low_addr = message.strip().lower()
+        if any(kw in low_addr for kw in _PICKUP_KEYWORDS):
+            order.address = "🏪 Retrait en magasin"
+            sess["state"] = ST_ITEMS
+            return "Super ! Commande à retirer en boutique 🏪\n\n" + _ask_items()
         order.address = message.strip()
         sess["state"] = ST_ITEMS
         return _ask_items()
+
 
     if state == ST_ITEMS:
         items = _parse_items(message)
