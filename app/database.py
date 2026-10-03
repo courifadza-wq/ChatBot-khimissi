@@ -77,16 +77,26 @@ def init_db() -> None:
 # -----------------------------------------------------------
 # Recherche de produits
 # -----------------------------------------------------------
+import unicodedata
+
 SEARCH_STOP_WORDS = {
     "le", "la", "les", "de", "du", "des", "un", "une", "en", "et", "ou",
     "je", "tu", "il", "elle", "nous", "vous", "ils", "moi", "toi", "lui",
-    "me", "te", "se", "y", "ça", "ce", "cet", "cette", "ces", "mon", "ton",
+    "me", "te", "se", "y", "ca", "ce", "cet", "cette", "ces", "mon", "ton",
     "son", "sa", "ses", "notre", "votre", "leur", "leurs", "avec", "pour",
     "dans", "sur", "par", "pas", "ne", "si", "que", "qui", "quoi", "est",
-    "sont", "avez", "avons", "ai", "as", "ait", "avoir", "être",
+    "sont", "avez", "avons", "ai", "as", "ait", "avoir", "etre",
     "veux", "voudrais", "cherche", "montrez", "montrer", "afficher",
     "voir", "quel", "quelle", "quels", "quelles", "ici", "voila",
 }
+
+
+def _no_accent(text: str) -> str:
+    """Supprime les accents : bébé → BEBE, chaussures → CHAUSSURES."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", text.upper())
+        if unicodedata.category(c) != "Mn"
+    )
 
 
 def search_products(
@@ -103,16 +113,27 @@ def search_products(
         params: list = []
 
         if keyword:
-            # Filtrer les mots vides et garder les mots significatifs (>=3 chars)
+            # Filtrer les mots vides, normaliser les accents, garder >=3 chars
             meaningful = [
-                w.upper() for w in keyword.split()
+                _no_accent(w) for w in keyword.split()
                 if len(w) >= 3 and w.lower() not in SEARCH_STOP_WORDS
             ]
             if meaningful:
-                # OR entre les mots-clés (plus permissif)
-                kw_conditions = [f"designation LIKE ?" for _ in meaningful]
+                kw_conditions = []
+                kw_params = []
+                for w in meaningful:
+                    # Mot complet normalisé
+                    kw_conditions.append("designation LIKE ?")
+                    kw_params.append(f"%{w}%")
+                    # Préfixe 6 chars pour morphologie française
+                    # ex: CHAUSSURES → CHAUSS, BIBERON → BIBERO
+                    if len(w) > 7:
+                        kw_conditions.append("designation LIKE ?")
+                        kw_params.append(f"%{w[:6]}%")
+                # OR entre toutes les variantes
                 conditions.append(f"({' OR '.join(kw_conditions)})")
-                params.extend([f"%{w}%" for w in meaningful])
+                params.extend(kw_params)
+
 
         if category:
             conditions.append("category LIKE ?")
@@ -127,8 +148,11 @@ def search_products(
             params.append(min_price)
 
         if age_hint:
-            conditions.append("(age_range LIKE ? OR designation LIKE ?)")
-            params.extend([f"%{age_hint}%", f"%{age_hint}%"])
+            age_norm = _no_accent(age_hint)
+            conditions.append(
+                "(age_range LIKE ? OR designation LIKE ? OR age_range LIKE ? OR designation LIKE ?)"
+            )
+            params.extend([f"%{age_hint}%", f"%{age_hint}%", f"%{age_norm}%", f"%{age_norm}%"])
 
         where = " AND ".join(conditions)
         query = f"""
