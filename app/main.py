@@ -116,17 +116,18 @@ async def webhook_receive(request: Request):
         "couverture", "bavoir", "bavette", "cuillere", "cuillère", "baignoire",
         "jouet", "peluche", "doudou", "hochet", "tricycle", "vélo",
         "savon", "creme", "crème", "shampoing", "lotion", "lingette",
-        "coffret", "cadeau", "kit", "vêtements", "vetements",
-        "alimentaire", "alimentation", "hygiène", "hygiene",
-        "puériculture", "puericulture"
+        "coffret", "cadeau", "kit",
     }
+    # Mots qui indiquent clairement un intent catalogue/commande → NE PAS intercepter
+    _EXCLUDE_TRIGGERS = {"catalogue", "commander", "commande", "livraison", "paiement",
+                         "prix", "responsable", "bonjour", "merci", "aide"}
     _txt_lower = text.lower()
     _has_product_kw = any(kw in _txt_lower for kw in _PRODUCT_KEYWORDS)
-    _has_age = any(p in _txt_lower for p in ["mois", " ans", "bébé", "bebe", "nourrisson", "nouveau-né"])
-    _has_price = any(p in _txt_lower for p in ["dzd", "da", "moins de", "plus de", "max", "budget"])
-    _has_category = any(c.lower() in _txt_lower for c in (get_categories() if count_products() > 0 else []))
+    _has_age = any(p in _txt_lower for p in ["mois", " ans", "bébé", "bebe", "nourrisson"])
+    _has_price_filter = any(p in _txt_lower for p in ["moins de", "plus de", "max", "budget", "dzd"])
+    _has_exclude = any(w in _txt_lower for w in _EXCLUDE_TRIGGERS)
 
-    if (_has_product_kw or _has_age or _has_price or _has_category) and not _in_order_session(phone):
+    if (_has_product_kw or _has_age or _has_price_filter) and not _has_exclude and not _in_order_session(phone):
         params = parse_search_query(text)
         results = search_products(
             keyword=params.get("keyword", ""),

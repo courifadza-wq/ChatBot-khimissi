@@ -77,6 +77,18 @@ def init_db() -> None:
 # -----------------------------------------------------------
 # Recherche de produits
 # -----------------------------------------------------------
+SEARCH_STOP_WORDS = {
+    "le", "la", "les", "de", "du", "des", "un", "une", "en", "et", "ou",
+    "je", "tu", "il", "elle", "nous", "vous", "ils", "moi", "toi", "lui",
+    "me", "te", "se", "y", "ça", "ce", "cet", "cette", "ces", "mon", "ton",
+    "son", "sa", "ses", "notre", "votre", "leur", "leurs", "avec", "pour",
+    "dans", "sur", "par", "pas", "ne", "si", "que", "qui", "quoi", "est",
+    "sont", "avez", "avons", "ai", "as", "ait", "avoir", "être",
+    "veux", "voudrais", "cherche", "montrez", "montrer", "afficher",
+    "voir", "quel", "quelle", "quels", "quelles", "ici", "voila",
+}
+
+
 def search_products(
     keyword: str = "",
     category: str = "",
@@ -91,10 +103,16 @@ def search_products(
         params: list = []
 
         if keyword:
-            for word in keyword.split():
-                if len(word) >= 3:
-                    conditions.append("designation LIKE ?")
-                    params.append(f"%{word.upper()}%")
+            # Filtrer les mots vides et garder les mots significatifs (>=3 chars)
+            meaningful = [
+                w.upper() for w in keyword.split()
+                if len(w) >= 3 and w.lower() not in SEARCH_STOP_WORDS
+            ]
+            if meaningful:
+                # OR entre les mots-clés (plus permissif)
+                kw_conditions = [f"designation LIKE ?" for _ in meaningful]
+                conditions.append(f"({' OR '.join(kw_conditions)})")
+                params.extend([f"%{w}%" for w in meaningful])
 
         if category:
             conditions.append("category LIKE ?")
@@ -123,6 +141,7 @@ def search_products(
         params.append(limit)
         rows = conn.execute(query, params).fetchall()
         return [dict(r) for r in rows]
+
 
 
 def count_products() -> int:
