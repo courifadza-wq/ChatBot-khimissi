@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY data ./data
+COPY scripts ./scripts
 
 # Crée le répertoire de données (volume Coolify monté ici)
 RUN mkdir -p /app/data
