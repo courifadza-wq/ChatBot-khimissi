@@ -57,6 +57,89 @@ async def health():
     return {"status": "ok", "nl_mode": settings.NL_MODE}
 
 
+@app.get("/privacy")
+async def privacy_policy():
+    from fastapi.responses import HTMLResponse
+    html = """<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Politique de confidentialité — Planète Kids</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto;
+           padding: 0 20px; color: #333; line-height: 1.7; }
+    h1 { color: #2c7be5; border-bottom: 2px solid #2c7be5; padding-bottom: 10px; }
+    h2 { color: #444; margin-top: 30px; }
+    p  { margin: 10px 0; }
+    a  { color: #2c7be5; }
+    .footer { margin-top: 50px; font-size: 0.85em; color: #888; }
+  </style>
+</head>
+<body>
+  <h1>🛍️ Planète Kids — Politique de Confidentialité</h1>
+  <p><strong>Date de mise à jour :</strong> Octobre 2026</p>
+
+  <h2>1. Présentation</h2>
+  <p>Planète Kids exploite un assistant WhatsApp automatisé pour faciliter les commandes et
+     répondre aux questions de nos clients. Cette politique décrit comment nous collectons,
+     utilisons et protégeons vos données personnelles.</p>
+
+  <h2>2. Données collectées</h2>
+  <p>Dans le cadre de l'utilisation de notre chatbot WhatsApp, nous pouvons collecter :</p>
+  <ul>
+    <li>Votre numéro de téléphone WhatsApp</li>
+    <li>Votre prénom et nom (fournis lors d'une commande)</li>
+    <li>Votre adresse de livraison</li>
+    <li>L'historique de vos commandes</li>
+    <li>Vos préférences de paiement</li>
+  </ul>
+
+  <h2>3. Utilisation des données</h2>
+  <p>Les données collectées sont utilisées exclusivement pour :</p>
+  <ul>
+    <li>Traiter et livrer vos commandes</li>
+    <li>Vous envoyer des confirmations et mises à jour</li>
+    <li>Améliorer notre service client</li>
+    <li>Mémoriser vos préférences pour des échanges futurs plus rapides</li>
+  </ul>
+
+  <h2>4. Partage des données</h2>
+  <p>Nous ne vendons, ne louons et ne partageons pas vos données personnelles avec des tiers,
+     sauf obligation légale ou nécessité pour la livraison (transporteur).</p>
+
+  <h2>5. Conservation des données</h2>
+  <p>Vos données sont conservées dans notre base de données sécurisée tant que vous êtes
+     client actif. Vous pouvez demander la suppression à tout moment.</p>
+
+  <h2>6. Vos droits</h2>
+  <p>Conformément à la réglementation applicable, vous disposez des droits suivants :</p>
+  <ul>
+    <li>Droit d'accès à vos données</li>
+    <li>Droit de rectification</li>
+    <li>Droit à l'effacement ("droit à l'oubli")</li>
+    <li>Droit d'opposition au traitement</li>
+  </ul>
+  <p>Pour exercer ces droits, contactez-nous via WhatsApp ou en écrivant à notre page Facebook.</p>
+
+  <h2>7. Sécurité</h2>
+  <p>Vos données sont stockées sur des serveurs sécurisés et protégées par des mesures
+     techniques appropriées contre tout accès non autorisé.</p>
+
+  <h2>8. Contact</h2>
+  <p>Pour toute question concernant cette politique :<br>
+     📱 WhatsApp : disponible via notre page Facebook Planète Kids<br>
+     🌐 Facebook : <a href="https://www.facebook.com/planetekids" target="_blank">Planète Kids</a>
+  </p>
+
+  <div class="footer">
+    <p>© 2026 Planète Kids — Tous droits réservés.</p>
+  </div>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
+
 @app.post("/webhook")
 async def webhook_receive(request: Request):
     data = await request.json()
