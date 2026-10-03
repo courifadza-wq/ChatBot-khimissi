@@ -30,7 +30,7 @@ class Order:
         for it in self.items:
             price = 0
             for p in get_products():
-                if p["name"].lower() in it["name"].lower() or it["name"].lower() in p["name"].lower():
+                if p["designation"].lower() in it["name"].lower() or it["name"].lower() in p["designation"].lower():
                     price = p["price"]
                     break
             total += price * it["qty"]
