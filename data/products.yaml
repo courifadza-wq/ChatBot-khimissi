@@ -3,8 +3,8 @@
 #  Utilisé pour répondre aux questions et construire la commande
 # ============================================================
 store:
-  name: "Mon Magasin"
-  description: "Magasin de produits physiques — vente en ligne et livraison."
+  name: "Planète Kids"
+  description: "Boutique spécialisée pour enfants — vente en ligne et livraison."
 
 delivery:
   price: 1500          # frais de livraison (DZD ou autre monnaie)
