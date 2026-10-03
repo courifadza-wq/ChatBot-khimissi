@@ -35,8 +35,12 @@ def get_payment() -> list[str]:
 # ── Recherche intelligente dans SQLite ───────────────────────────────────────
 
 def find_product(keyword: str) -> dict | None:
-    """Retourne le premier produit correspondant au mot-clé."""
-    results = search_products(keyword=keyword, limit=1)
+    """Retourne le premier produit correspondant au mot-clé (mode strict AND)."""
+    # Mode strict : tous les mots doivent matcher → évite les faux positifs
+    results = search_products(keyword=keyword, limit=1, strict=True)
+    if not results:
+        # Fallback : mode souple (OR) si strict ne trouve rien
+        results = search_products(keyword=keyword, limit=1, strict=False)
     return results[0] if results else None
 
 

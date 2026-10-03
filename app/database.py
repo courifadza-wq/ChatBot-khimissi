@@ -148,33 +148,36 @@ def search_products(
     min_price: float = 0,
     age_hint: str = "",
     limit: int = 5,
+    strict: bool = False,
 ) -> list[dict]:
-    """Recherche des produits selon plusieurs critères combinés."""
+    """Recherche des produits. strict=True: tous les mots doivent matcher (mode commande)."""
     with _get_conn() as conn:
         conditions = ["stock > 0"]
         params: list = []
 
         if keyword:
-            # Filtrer les mots vides, normaliser les accents, garder >=3 chars
             meaningful = [
                 _no_accent(w) for w in keyword.split()
                 if len(w) >= 3 and w.lower() not in SEARCH_STOP_WORDS
             ]
             if meaningful:
-                kw_conditions = []
-                kw_params = []
-                for w in meaningful:
-                    # Mot complet normalisé
-                    kw_conditions.append("designation LIKE ?")
-                    kw_params.append(f"%{w}%")
-                    # Préfixe 6 chars pour morphologie française
-                    # ex: CHAUSSURES → CHAUSS, BIBERON → BIBERO
-                    if len(w) > 7:
+                if strict and len(meaningful) > 1:
+                    # Mode strict (commande) : TOUS les mots doivent matcher
+                    for w in meaningful:
+                        conditions.append("designation LIKE ?")
+                        params.append(f"%{w}%")
+                else:
+                    # Mode souple (catalogue) : au moins un mot matche (OR)
+                    kw_conditions = []
+                    kw_params = []
+                    for w in meaningful:
                         kw_conditions.append("designation LIKE ?")
-                        kw_params.append(f"%{w[:6]}%")
-                # OR entre toutes les variantes
-                conditions.append(f"({' OR '.join(kw_conditions)})")
-                params.extend(kw_params)
+                        kw_params.append(f"%{w}%")
+                        if len(w) > 7:
+                            kw_conditions.append("designation LIKE ?")
+                            kw_params.append(f"%{w[:6]}%")
+                    conditions.append(f"({' OR '.join(kw_conditions)})")
+                    params.extend(kw_params)
 
 
         if category:
