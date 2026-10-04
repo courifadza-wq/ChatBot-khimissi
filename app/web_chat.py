@@ -99,15 +99,8 @@ def get_bot_reply(session_id: str, text: str) -> str:
     _has_excl = any(w in _tl for w in _EXCLUDE)
 
     if (_has_kw or _has_age or _has_price) and not _has_excl and not _in_session(session_id):
-        params = parse_search_query(text)
-        results = search_products(
-            keyword=params.get("keyword", ""),
-            max_price=params.get("max_price", 0),
-            min_price=params.get("min_price", 0),
-            age_hint=params.get("age_hint", ""),
-            limit=5,
-        )
-        return format_search_results(results, query=params.get("keyword", text))
+        from .catalog import smart_search
+        return smart_search(text)
 
     # ── Détection catégorie ──────────────────────────────────────────
     if not _in_session(session_id) and not _has_excl:
@@ -146,11 +139,19 @@ def get_bot_reply(session_id: str, text: str) -> str:
             "stop", "annuler", "quitter", "cancel", "menu",
             "aide", "help", "retour", "accueil",
             "catalogue", "livraison", "paiement", "prix",
+            # Arabe / Darija
+            "سلام", "مرحبا", "اهلا", "هلا", "السلام عليكم", "سلام عليكم",
+            "صباح الخير", "مساء الخير", "مع السلامة", "باي", "خلاص",
         }
-        if text.strip().lower() in _BAILOUT or intent in ("greeting", "goodbye", "cancel_order"):
-            if _in_session(session_id):
-                reset_session(session_id)
-                return reply_for("greeting", message=text, client=client_profile, lang=lang) or "Comment puis-je vous aider ?"
+        _is_bailout = (
+            text.strip().lower() in _BAILOUT
+            or text.strip() in _BAILOUT
+            or intent in ("greeting", "goodbye", "cancel_order")
+            or _forced_intent in ("greeting", "goodbye")  # salutation arabe détectée
+        )
+        if _is_bailout and _in_session(session_id):
+            reset_session(session_id)
+            return reply_for("greeting", message=text, client=client_profile, lang=lang) or "Comment puis-je vous aider ?"
 
         reply = process(session_id, text, intent)
         if reply == "CONFIRMED":
