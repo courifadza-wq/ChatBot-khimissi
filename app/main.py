@@ -206,10 +206,13 @@ async def webhook_receive(request: Request):
         # Merci
         "شكرا": "thanks", "شكراً": "thanks", "يعطيك الصحة": "thanks",
         "بارك الله فيك": "thanks", "مرسي": "thanks",
-        # Catalogue
-        "الكتالوج": "products", "كتالوج": "products", "الأسعار": "products",
-        "الاسعار": "products", "اسعار": "products",
+        # Catalogue — toutes les variantes d'espacement
+        "الكتالوج": "products", "كتالوج": "products",
+        "الأسعار": "products", "الاسعار": "products", "اسعار": "products", "أسعار": "products",
         "الكتالوج / الأسعار": "products", "الكتالوج / الاسعار": "products",
+        "الكتالوج/الأسعار": "products", "الكتالوج/الاسعار": "products",
+        "الكتالوج/ الاسعار": "products", "الكتالوج/ الأسعار": "products",
+        "كتالوج/اسعار": "products", "كتالوج/ اسعار": "products",
         # Livraison
         "التوصيل": "delivery", "توصيل": "delivery", "التوصيل والأسعار": "delivery",
         # Paiement
@@ -221,14 +224,34 @@ async def webhook_receive(request: Request):
         "مساعدة": "help", "واش تعرف": "help",
     }
 
+    # Mots-clés arabes partiels (si pas de match exact)
+    _AR_KEYWORDS = [
+        (["كتالوج", "اسعار", "أسعار", "الكتالوج"], "products"),
+        (["توصيل", "توصيلة"], "delivery"),
+        (["الدفع", "طريقة دفع", "كيف ندفع"], "payment"),
+        (["اطلب", "تطلب", "بغيت نطلب"], "order_start"),
+    ]
+
+    # Normaliser les espaces autour de / avant comparaison
+    import re as _re
     _txt_stripped = text.strip()
-    if _txt_stripped in _AR_MENU:
-        _forced_intent = _AR_MENU[_txt_stripped]
+    _txt_norm = _re.sub(r'\s*/\s*', '/', _re.sub(r'\s+', ' ', _txt_stripped))
+
+    # 1) Correspondance exacte (texte brut ou normalisé)
+    _forced_intent = _AR_MENU.get(_txt_stripped) or _AR_MENU.get(_txt_norm)
+
+    # 2) Fallback : mots-clés partiels pour texte arabe
+    if not _forced_intent and lang == "ar":
+        for _kws, _intent in _AR_KEYWORDS:
+            if any(kw in _txt_stripped for kw in _kws):
+                _forced_intent = _intent
+                break
+
+    if _forced_intent:
         _ar_resp = reply_for(_forced_intent, message=text, client=client_profile, lang=lang)
         if _ar_resp:
             send_text_message(phone, _ar_resp)
             return {"status": "ok"}
-        # Si order_start → pas de reply_for, passer au NLP normal
         if _forced_intent == "order_start":
             intent = "order_start"
             reply = process(phone, text, intent)
