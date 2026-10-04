@@ -50,7 +50,7 @@ def format_catalog() -> str:
     categories = get_categories()
     total = count_products()
 
-    lines = [f"🛍️ *{store['name']}* — Catalogue ({total} articles en stock)", ""]
+    lines = [f"🛍️ *{store['name']}*", ""]
 
     if categories:
         lines.append("📂 *Catégories disponibles :*")
