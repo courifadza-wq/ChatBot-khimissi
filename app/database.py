@@ -164,20 +164,23 @@ def search_products(
                 if strict and len(meaningful) > 1:
                     # Mode strict (commande) : TOUS les mots doivent matcher
                     for w in meaningful:
-                        conditions.append("designation LIKE ?")
-                        params.append(f"%{w}%")
+                        conditions.append("(designation LIKE ? OR mot LIKE ?)")
+                        params.extend([f"%{w}%", f"%{w}%"])
                 else:
-                    # Mode souple (catalogue) : au moins un mot matche (OR)
+                    # Mode souple (catalogue) : designation OR mot
                     kw_conditions = []
                     kw_params = []
                     for w in meaningful:
                         kw_conditions.append("designation LIKE ?")
+                        kw_params.append(f"%{w}%")
+                        kw_conditions.append("mot LIKE ?")
                         kw_params.append(f"%{w}%")
                         if len(w) > 7:
                             kw_conditions.append("designation LIKE ?")
                             kw_params.append(f"%{w[:6]}%")
                     conditions.append(f"({' OR '.join(kw_conditions)})")
                     params.extend(kw_params)
+
 
 
         if category:
