@@ -162,7 +162,13 @@ async def webhook_receive(request: Request):
     phone = message["from"]
     text = message["text"]["body"]
 
-    logger.info("Message de %s : %s", phone, text)
+    # ── Détection langue : arabe/derja ou français ───────────────────
+    def _is_arabic(t: str) -> bool:
+        arabic_chars = sum(1 for c in t if "\u0600" <= c <= "\u06FF")
+        return arabic_chars / max(len(t), 1) > 0.25
+    lang = "ar" if _is_arabic(text) else "fr"
+
+    logger.info("Message de %s [%s] : %s", phone, lang, text)
 
     # ── Commandes du propriétaire (on / off / état) ──────────────────
     owner_phone = settings.OWNER_PHONE.replace("+", "").replace(" ", "")
@@ -200,7 +206,10 @@ async def webhook_receive(request: Request):
         "jouet", "peluche", "doudou", "hochet", "tricycle", "vélo",
         "savon", "creme", "crème", "shampoing", "lotion", "lingette",
         "coffret", "cadeau", "kit",
+        "ballerine", "basket", "slip", "bib", "bal",
+        "بيبرون", "لباس", "حذاء", "جوارب", "حفاض", "لعبة",
     }
+
     # Mots qui indiquent clairement un intent catalogue/commande → NE PAS intercepter
     _EXCLUDE_TRIGGERS = {"catalogue", "commander", "commande", "livraison", "paiement",
                          "prix", "responsable", "bonjour", "merci", "aide"}
@@ -302,7 +311,7 @@ async def webhook_receive(request: Request):
             return {"status": "ok"}
 
     # 3) Sinon réponse normale selon l'intention (avec profil client)
-    response = reply_for(intent, message=text, client=client_profile)
+    response = reply_for(intent, message=text, client=client_profile, lang=lang)
     if response is None:
         # ── Fallback intelligent : tenter une recherche produit ──────
         from .catalog import parse_search_query, format_search_results

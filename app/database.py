@@ -152,7 +152,7 @@ def search_products(
 ) -> list[dict]:
     """Recherche des produits. strict=True: tous les mots doivent matcher (mode commande)."""
     with _get_conn() as conn:
-        conditions = ["stock > 0"]
+        conditions = ["stock > 0", "price > 0"]
         params: list = []
 
         if keyword:

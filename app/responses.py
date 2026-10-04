@@ -29,22 +29,26 @@ def _payment_text() -> str:
     return "\n".join(lines)
 
 
-def reply_for(intent: str, message: str = "", client: dict | None = None) -> str | None:
-    """Retourne la réponse texte pour une intention (None si à gérer ailleurs).
-
-    Args:
-        intent:  Intention détectée par le classifieur NLP.
-        message: Texte brut du client (pour chercher un produit mentionné).
-        client:  Profil long-terme du client (depuis SQLite), ou None si inconnu.
-    """
+def reply_for(intent: str, message: str = "", client: dict | None = None, lang: str = "fr") -> str | None:
+    """Retourne la réponse pour une intention. lang='ar' pour arabe/darija."""
     s = get_store()
+    _ar = lang == "ar"
 
     if intent == "greeting":
-        # ── Salutation personnalisée pour les clients connus ──
         if client and client.get("name"):
             name = client["name"]
             count = client.get("order_count", 0)
             if count >= 1:
+                if _ar:
+                    return (
+                        f"مرحبا *{name}* ! 🎉 يسعدنا عودتك !\n"
+                        f"_(راك دارت {count} طلب{'ات' if count > 1 else ''} معانا)_\n\n"
+                        "واش تحب :\n"
+                        "• 📦 الكتالوج / الأسعار\n"
+                        "• 🚚 التوصيل\n"
+                        "• 💳 الدفع\n"
+                        "• 🛒 تطلب"
+                    )
                 return (
                     f"Bon retour *{name}* ! 🎉 Content de vous revoir !\n"
                     f"_(Vous avez passé {count} commande{'s' if count > 1 else ''} chez nous)_\n\n"
@@ -54,6 +58,16 @@ def reply_for(intent: str, message: str = "", client: dict | None = None) -> str
                     "• 💳 Paiement\n"
                     "• 🛒 Commander"
                 )
+        if _ar:
+            return (
+                f"مرحبا 👋 أهلا بك في *{s['name']}* !\n\n"
+                "نقدر نعاونك في :\n"
+                "• 📦 الكتالوج / الأسعار\n"
+                "• 🚚 التوصيل\n"
+                "• 💳 طريقة الدفع\n"
+                "• 🛒 تسجيل طلب\n\n"
+                "اكتب سؤالك مباشرة 😊"
+            )
         return (
             f"Bonjour 👋 Bienvenue chez *{s['name']}* !\n\n"
             "Je peux vous aider avec :\n"
@@ -65,10 +79,10 @@ def reply_for(intent: str, message: str = "", client: dict | None = None) -> str
         )
 
     if intent == "goodbye":
-        return "Merci et à bientôt ! 👋"
+        return "مع السلامة ! 👋 نتمنالك يوم زين" if _ar else "Merci et à bientôt ! 👋"
 
     if intent == "thanks":
-        return "Avec plaisir ! 😊 N'hésitez pas si vous avez d'autres questions."
+        return "العفو 😊 أي سؤال آخر ؟" if _ar else "Avec plaisir ! 😊 N'hésitez pas si vous avez d'autres questions."
 
     if intent == "products":
         return format_catalog()
@@ -76,7 +90,6 @@ def reply_for(intent: str, message: str = "", client: dict | None = None) -> str
     if intent in ("prices", "product_info", "availability", "search"):
         from .catalog import parse_search_query, format_search_results
         from .database import search_products
-        # Parser la requête du client pour extraire les critères
         params = parse_search_query(message) if message else {}
         results = search_products(
             keyword=params.get("keyword", ""),
@@ -87,14 +100,28 @@ def reply_for(intent: str, message: str = "", client: dict | None = None) -> str
         )
         return format_search_results(results, query=params.get("keyword", ""))
 
-
     if intent == "delivery":
+        if _ar:
+            d = get_delivery()
+            return (
+                f"🚚 *التوصيل* :\n"
+                f"• الثمن : {d['price']} دج\n"
+                f"• مجاني من : {d['free_above']} دج\n"
+                f"• المناطق : {', '.join(d['zones'])}\n"
+                f"• المدة : {d['delay']}"
+            )
         return _delivery_text()
 
     if intent == "payment":
+        if _ar:
+            lines = ["💳 *طرق الدفع* :"]
+            lines += [f"• {p}" for p in get_payment()]
+            return "\n".join(lines)
         return _payment_text()
 
     if intent == "hours":
+        if _ar:
+            return "🕘 *أوقات العمل* :\n• الاثنين – السبت : 9h – 19h\n• الأحد : مغلق\n(الطلبات عبر واتساب 24/24 😊)"
         return "🕘 *Horaires d'ouverture* :\n• Lun–Sam : 9h00 – 19h00\n• Dimanche : fermé\n(Commandes WhatsApp 24h/24 😊)"
 
     if intent == "location":
