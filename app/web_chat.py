@@ -132,6 +132,44 @@ def get_bot_reply(session_id: str, text: str) -> str:
     # ── NLP ──────────────────────────────────────────────────────────
     intent = classifier.predict(text)
 
+    # ── Détection par mots-clés (complète le NLP) ────────────────────
+    _KEYWORD_INTENT: dict[str, tuple[str, ...]] = {
+        "hours": (
+            "fermeture", "fermé", "ferme", "ouverture", "ouvert", "ouvre",
+            "horaire", "horaires", "heure", "heures", "schedule",
+            "مواعيد", "وقت الفتح", "مغلق", "مفتوح", "ساعات",
+        ),
+        "location": (
+            "localisation", "adresse", "emplacement", "situé", "où êtes",
+            "ou etes", "magasin", "boutique", "trouver", "venir",
+            "عنوان", "اين", "وين", "محل", "متجر", "لوكاليزاسيون",
+        ),
+        "delivery": (
+            "livraison", "livrer", "livreur", "wilaya", "wilayas", "délai",
+            "frais", "transport", "expédition",
+            "توصيل", "يوصل", "ديليفري", "ولاية",
+        ),
+        "payment": (
+            "paiement", "payer", "règlement", "virement", "ccp", "baridimob",
+            "دفع", "فلوس", "تسديد", "بريدي موب",
+        ),
+        "discount": (
+            "promo", "promotion", "réduction", "solde", "remise", "offre",
+            "تخفيض", "برومو", "سولد",
+        ),
+        "warranty": (
+            "garantie", "retour", "échange", "remboursement", "défaut",
+            "ضمان", "ترجيع", "تبديل",
+        ),
+    }
+    if not _in_session(session_id):
+        for _kw_intent, _kws in _KEYWORD_INTENT.items():
+            if any(kw in _tl or kw in text for kw in _kws):
+                _kw_reply = reply_for(_kw_intent, message=text, client=client_profile, lang=lang)
+                if _kw_reply:
+                    return _kw_reply
+
+    # ── NLP ──────────────────────────────────────────────────────────
     # ── Flux commande ─────────────────────────────────────────────────
     if intent == "order_start" or _in_session(session_id):
         _BAILOUT = {

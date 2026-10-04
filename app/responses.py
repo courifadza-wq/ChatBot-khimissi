@@ -122,11 +122,33 @@ def reply_for(intent: str, message: str = "", client: dict | None = None, lang: 
 
     if intent == "hours":
         if _ar:
-            return "🕘 *أوقات العمل* :\n• الاثنين – السبت : 9h – 19h\n• الأحد : مغلق\n(الطلبات عبر واتساب 24/24 😊)"
-        return "🕘 *Horaires d'ouverture* :\n• Lun–Sam : 9h00 – 19h00\n• Dimanche : fermé\n(Commandes WhatsApp 24h/24 😊)"
+            return (
+                "🕘 *أوقات العمل* :\n"
+                "• الاثنين – السبت : 9h – 19h\n"
+                "• الأحد : مغلق\n"
+                "📦 الطلبات عبر موقعنا 24/24 😊"
+            )
+        return (
+            "🕘 *Horaires d'ouverture* :\n"
+            "• Lun – Sam : 9h00 – 19h00\n"
+            "• Dimanche : fermé 🔒\n"
+            "📦 Commandes en ligne 24h/24 via notre site 😊"
+        )
 
     if intent == "location":
-        return "📍 Notre adresse : Centre-ville, Algérie.\n(Vous pouvez aussi commander via WhatsApp, nous livrons chez vous !)"
+        if _ar:
+            return (
+                f"📍 *{s['name']}* :\n"
+                "• العنوان : وسط مدينة الجزائر\n"
+                "• نوصلو لجميع ولايات الجزائر 🚚\n"
+                "اطلب عبر موقعنا وراك تستلم عندك 😊"
+            )
+        return (
+            f"📍 *{s['name']}* :\n"
+            "• Adresse : Centre-ville, Alger\n"
+            "• Livraison dans toutes les wilayas d'Algérie 🚚\n"
+            "Commandez en ligne, on livre chez vous 😊"
+        )
 
     if intent == "contact_human":
         return (
