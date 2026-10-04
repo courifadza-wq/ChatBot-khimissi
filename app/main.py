@@ -224,7 +224,6 @@ async def webhook_receive(request: Request):
     _txt_stripped = text.strip()
     if _txt_stripped in _AR_MENU:
         _forced_intent = _AR_MENU[_txt_stripped]
-        from .responses import reply_for
         _ar_resp = reply_for(_forced_intent, message=text, client=client_profile, lang=lang)
         if _ar_resp:
             send_text_message(phone, _ar_resp)
