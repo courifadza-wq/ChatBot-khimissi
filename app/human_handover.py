@@ -1,32 +1,67 @@
 # ============================================================
 #  Contrôle on/off du bot par le propriétaire
 #  Le propriétaire envoie "on" ou "off" via WhatsApp
+#  L'état est persisté en SQLite (survit aux redémarrages)
 # ============================================================
 
 import logging
+import sqlite3
+from pathlib import Path
 
 logger = logging.getLogger("handover")
 
-# État global du bot (True = actif, False = désactivé)
-_bot_active: bool = True
+_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "bot_memory.db"
+
+
+def _get_state() -> bool:
+    """Lit l'état bot depuis SQLite. Défaut : actif (True)."""
+    try:
+        conn = sqlite3.connect(_DB_PATH)
+        row = conn.execute(
+            "SELECT value FROM bot_settings WHERE key='bot_active'"
+        ).fetchone()
+        conn.close()
+        if row is None:
+            return True
+        return row[0] == "1"
+    except Exception:
+        return True  # En cas d'erreur → bot actif par défaut
+
+
+def _set_state(active: bool) -> None:
+    """Sauvegarde l'état bot dans SQLite."""
+    try:
+        conn = sqlite3.connect(_DB_PATH)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS bot_settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
+        conn.execute(
+            "INSERT OR REPLACE INTO bot_settings (key, value) VALUES ('bot_active', ?)",
+            ("1" if active else "0",)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error("Erreur sauvegarde état bot : %s", e)
 
 
 def is_active() -> bool:
     """Retourne True si le bot est actif."""
-    return _bot_active
+    return _get_state()
 
 
 def turn_off() -> None:
     """Désactiver le bot — il ne répond plus aux clients."""
-    global _bot_active
-    _bot_active = False
+    _set_state(False)
     logger.info("🔴 Bot désactivé par le propriétaire")
 
 
 def turn_on() -> None:
     """Activer le bot — il reprend les réponses automatiques."""
-    global _bot_active
-    _bot_active = True
+    _set_state(True)
     logger.info("🟢 Bot activé par le propriétaire")
 
 
@@ -59,7 +94,8 @@ def handle_owner_command(text: str) -> str | None:
         )
 
     if cmd in ("état", "etat", "status"):
-        if _bot_active:
+        active = is_active()
+        if active:
             return "🟢 *Bot actif* — il répond automatiquement aux clients.\nEnvoie *off* pour le désactiver."
         else:
             return "🔴 *Bot désactivé* — tu réponds manuellement.\nEnvoie *on* pour le réactiver."
