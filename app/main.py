@@ -196,6 +196,16 @@ async def webhook_receive(request: Request):
 
     # -1) Mapping direct des mots-clés arabes/darija du menu ─────────────────
     _AR_MENU = {
+        # Salutations arabes/darija
+        "السلام عليكم": "greeting", "سلام": "greeting", "مرحبا": "greeting",
+        "صباح الخير": "greeting", "مساء الخير": "greeting", "أهلا": "greeting",
+        "اهلا": "greeting", "هلا": "greeting", "هاي": "greeting",
+        # Au revoir
+        "مع السلامة": "goodbye", "باي": "goodbye", "وداعا": "goodbye",
+        "يعيشك": "goodbye", "تصبح على خير": "goodbye",
+        # Merci
+        "شكرا": "thanks", "شكراً": "thanks", "يعطيك الصحة": "thanks",
+        "بارك الله فيك": "thanks", "مرسي": "thanks",
         # Catalogue
         "الكتالوج": "products", "كتالوج": "products", "الأسعار": "products",
         "الاسعار": "products", "اسعار": "products",
@@ -210,6 +220,7 @@ async def webhook_receive(request: Request):
         # Aide
         "مساعدة": "help", "واش تعرف": "help",
     }
+
     _txt_stripped = text.strip()
     if _txt_stripped in _AR_MENU:
         _forced_intent = _AR_MENU[_txt_stripped]

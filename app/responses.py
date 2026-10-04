@@ -60,7 +60,7 @@ def reply_for(intent: str, message: str = "", client: dict | None = None, lang: 
                 )
         if _ar:
             return (
-                f"مرحبا 👋 أهلا بك في *{s['name']}* !\n\n"
+                f"وعليكم السلام 👋 أهلا بك في *{s['name']}* !\n\n"
                 "نقدر نعاونك في :\n"
                 "• 📦 الكتالوج / الأسعار\n"
                 "• 🚚 التوصيل\n"
@@ -68,8 +68,10 @@ def reply_for(intent: str, message: str = "", client: dict | None = None, lang: 
                 "• 🛒 تسجيل طلب\n\n"
                 "اكتب سؤالك مباشرة 😊"
             )
+        # Bonjour ou Bonsoir selon le message
+        salut = "Bonsoir" if "soir" in message.lower() else "Bonjour"
         return (
-            f"Bonjour 👋 Bienvenue chez *{s['name']}* !\n\n"
+            f"{salut} 👋 Bienvenue chez *{s['name']}* !\n\n"
             "Je peux vous aider avec :\n"
             "• 📦 Le catalogue / les prix\n"
             "• 🚚 La livraison\n"
@@ -77,6 +79,7 @@ def reply_for(intent: str, message: str = "", client: dict | None = None, lang: 
             "• 🛒 Passer une commande\n\n"
             "Écrivez simplement votre question 😊"
         )
+
 
     if intent == "goodbye":
         return "مع السلامة ! 👋 نتمنالك يوم زين" if _ar else "Merci et à bientôt ! 👋"
