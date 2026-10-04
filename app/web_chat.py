@@ -138,34 +138,51 @@ def get_bot_reply(session_id: str, text: str) -> str:
         "hours": (
             "fermeture", "fermé", "ferme", "ouverture", "ouvert", "ouvre",
             "horaire", "horaires", "heure", "heures", "schedule",
-            "مواعيد", "وقت الفتح", "مغلق", "مفتوح", "ساعات",
+            # Arabe standard
+            "مواعيد", "وقت الفتح", "مغلق", "مفتوح", "ساعات", "يفتح", "يسكر",
+            # Darija (après normalisation arabizi)
+            "مسكر", "مسكار", "مسكار", "يفتحو", "يسكرو", "مفتوح",
+            # Arabizi direct (avant normalisation)
+            "msakker", "msaker", "msakar", "mftu7", "meftou7", "meftuh",
+            "sa3a", "sa3at", "waqt", "wa9t", "lyom",
         ),
         "location": (
             "localisation", "adresse", "emplacement", "situé", "où êtes",
             "ou etes", "magasin", "boutique", "trouver", "venir",
+            "boudouaou", "boumerdes", "boumerdès",
+            # Arabe
             "عنوان", "اين", "وين", "محل", "متجر", "لوكاليزاسيون",
+            # Arabizi
+            "wein", "fin lmahal", "fin lboutique",
         ),
         "delivery": (
             "livraison", "livrer", "livreur", "wilaya", "wilayas", "délai",
             "frais", "transport", "expédition",
-            "توصيل", "يوصل", "ديليفري", "ولاية",
+            # Arabe / Darija
+            "توصيل", "يوصل", "ديليفري", "ولاية", "يوصلو",
+            # Arabizi
+            "twassal", "tawsil", "wila9a",
         ),
         "payment": (
             "paiement", "payer", "règlement", "virement", "ccp", "baridimob",
-            "دفع", "فلوس", "تسديد", "بريدي موب",
+            # Arabe / Darija
+            "دفع", "فلوس", "تسديد", "بريدي موب", "دفعه",
+            # Arabizi
+            "flous", "dfou3", "d9ou3",
         ),
         "discount": (
             "promo", "promotion", "réduction", "solde", "remise", "offre",
-            "تخفيض", "برومو", "سولد",
+            "تخفيض", "برومو", "سولد", "عروض",
         ),
         "warranty": (
             "garantie", "retour", "échange", "remboursement", "défaut",
-            "ضمان", "ترجيع", "تبديل",
+            "ضمان", "ترجيع", "تبديل", "رجع",
         ),
     }
     if not _in_session(session_id):
         for _kw_intent, _kws in _KEYWORD_INTENT.items():
-            if any(kw in _tl or kw in text for kw in _kws):
+            # Vérifie dans le texte normalisé ET dans le texte original (arabizi brut)
+            if any(kw in _tl or kw in text.lower() for kw in _kws):
                 _kw_reply = reply_for(_kw_intent, message=text, client=client_profile, lang=lang)
                 if _kw_reply:
                     return _kw_reply
