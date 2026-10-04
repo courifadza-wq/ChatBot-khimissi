@@ -123,8 +123,8 @@ def parse_search_query(message: str) -> dict:
     # Mot-clé : retirer les mots de prix/âge pour garder le nom du produit
     keyword = re.sub(r"(?:moins de|plus de|max|min|au moins|pas plus de)\s*\d+\s*(?:dzd|da)?", "", msg)
     keyword = re.sub(r"\d+\s*(?:mois|ans?)", "", keyword)
-    keyword = re.sub(r"(?:bébé|bebe|nouveau[- ]?né|enfant|fille|garçon)", "", keyword)
-    keyword = re.sub(r"(?:cherche|veux|voudrais|montres?[- ]?moi|je|un|une|des|le|la|les|du|de)", "", keyword)
+    keyword = re.sub(r"\b(?:bébé|bebe|nouveau[- ]?né|enfant|fille|garçon)\b", "", keyword)
+    keyword = re.sub(r"\b(?:cherche|veux|voudrais|montres?[- ]?moi|je|un|une|des|le|la|les|du|de)\b", "", keyword)
     keyword = re.sub(r"\s+", " ", keyword).strip()
     # Normaliser les pluriels français : ballerines → ballerine, sandales → sandale
     keyword = re.sub(r"\b(\w{4,})es\b", r"\1e", keyword)   # ballerines → ballerine
