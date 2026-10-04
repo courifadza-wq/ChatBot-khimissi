@@ -20,9 +20,10 @@ def get_bot_reply(session_id: str, text: str) -> str:
     if not text:
         return "Bonjour ! Comment puis-je vous aider ? 😊"
 
-    # ── Détection langue ─────────────────────────────────────────────
-    arabic_chars = sum(1 for c in text if "\u0600" <= c <= "\u06FF")
-    lang = "ar" if arabic_chars / max(len(text), 1) > 0.25 else "fr"
+    # ── Normalisation (arabizi, diacritiques, élongations) ───────────
+    from .normalize import normalize, detect_lang
+    text_norm = normalize(text)   # version normalisée pour la comparaison
+    lang = "ar" if detect_lang(text) in ("ar", "arabizi") else "fr"
 
     # ── Profil client ────────────────────────────────────────────────
     try:
@@ -92,15 +93,15 @@ def get_bot_reply(session_id: str, text: str) -> str:
         "bonjour", "merci", "aide",
         "الكتالوج", "كتالوج", "الاسعار", "طلب", "توصيل",
     }
-    _tl = text.lower()
+    _tl = text_norm  # texte normalisé (arabizi converti, diacritiques supprimés)
     _has_kw = any(kw in _tl for kw in _PRODUCT_KW)
-    _has_age = any(p in _tl for p in ["mois", " ans", "bébé", "bebe"])
-    _has_price = any(p in _tl for p in ["moins de", "plus de", "max", "budget"])
+    _has_age = any(p in _tl for p in ["mois", " ans", "bébé", "bebe", "شهر", "سنه"])
+    _has_price = any(p in _tl for p in ["moins de", "plus de", "max", "budget", "bchhal", "شحال"])
     _has_excl = any(w in _tl for w in _EXCLUDE)
 
     if (_has_kw or _has_age or _has_price) and not _has_excl and not _in_session(session_id):
         from .catalog import smart_search
-        return smart_search(text)
+        return smart_search(text_norm)
 
     # ── Détection catégorie ──────────────────────────────────────────
     if not _in_session(session_id) and not _has_excl:

@@ -121,33 +121,48 @@ def reply_for(intent: str, message: str = "", client: dict | None = None, lang: 
         return _payment_text()
 
     if intent == "hours":
+        from .facts import is_open_now
+        _, msg_fr, msg_ar = is_open_now()
+        s2 = get_store()
+        h = s2.get("hours", {})
+        wd = h.get("weekday", {})
+        fr_days = wd.get("days_fr", "Sam–Jeu")
+        ar_days = wd.get("days_ar", "السبت–الخميس")
         if _ar:
             return (
-                "🕘 *أوقات العمل* :\n"
-                "• الاثنين – السبت : 9h – 19h\n"
-                "• الأحد : مغلق\n"
-                "📦 الطلبات عبر موقعنا 24/24 😊"
+                f"🕘 *أوقات العمل — {s['name']}* :\n"
+                f"• {ar_days} : 9h – 21h\n"
+                f"• الجمعة : 14h30 – 21h\n\n"
+                f"{msg_ar}"
             )
         return (
-            "🕘 *Horaires d'ouverture* :\n"
-            "• Lun – Sam : 9h00 – 19h00\n"
-            "• Dimanche : fermé 🔒\n"
-            "📦 Commandes en ligne 24h/24 via notre site 😊"
+            f"🕘 *Horaires — {s['name']}* :\n"
+            f"• {fr_days} : 9h00 – 21h00\n"
+            f"• Vendredi : 14h30 – 21h00\n\n"
+            f"{msg_fr}"
         )
 
     if intent == "location":
+        s2 = get_store()
+        addr_fr = s2.get("address_fr", "Boudouaou, Boumerdès")
+        addr_ar = s2.get("address_ar", "بودواو، بومرداس")
+        phone = s2.get("phone", "+213 554 69 87 46")
+        maps = s2.get("maps_url", "")
         if _ar:
             return (
                 f"📍 *{s['name']}* :\n"
-                "• العنوان : وسط مدينة الجزائر\n"
-                "• نوصلو لجميع ولايات الجزائر 🚚\n"
-                "اطلب عبر موقعنا وراك تستلم عندك 😊"
+                f"• العنوان : {addr_ar}\n"
+                f"• الهاتف : {phone}\n"
+                f"• نوصلو لجميع ولايات الجزائر 🚚\n"
+                f"اطلب عبر موقعنا وراك تستلم عندك 😊"
             )
         return (
             f"📍 *{s['name']}* :\n"
-            "• Adresse : Centre-ville, Alger\n"
-            "• Livraison dans toutes les wilayas d'Algérie 🚚\n"
-            "Commandez en ligne, on livre chez vous 😊"
+            f"• Adresse : {addr_fr}\n"
+            f"• Tél : {phone}\n"
+            f"• Livraison dans toutes les wilayas 🚚\n"
+            f"Commandez en ligne, on livre chez vous 😊"
+            + (f"\n📌 {maps}" if maps else "")
         )
 
     if intent == "contact_human":

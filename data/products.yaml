@@ -11,6 +11,21 @@ store:
   currency: "DZD"
   catalog_size: 10102
   stock_units: 70425
+  address_fr: "Rue des Frères Aoudia, Boudouaou, Boumerdès"
+  address_ar: "شارع الإخوة عوديا، بودواو، بومرداس"
+  phone: "+213 554 69 87 46"
+  email: "contact@planetkids.dz"
+  maps_url: "https://maps.app.goo.gl/boudouaou-planetekids"
+  hours:
+    weekday:
+      open: "09:00"
+      close: "21:00"
+      days_fr: "Samedi – Jeudi"
+      days_ar: "السبت – الخميس"
+    friday:
+      open: "14:30"
+      close: "21:00"
+
 
 products:
 
