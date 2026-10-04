@@ -211,8 +211,13 @@ async def webhook_receive(request: Request):
     }
 
     # Mots qui indiquent clairement un intent catalogue/commande → NE PAS intercepter
-    _EXCLUDE_TRIGGERS = {"catalogue", "commander", "commande", "livraison", "paiement",
-                         "prix", "responsable", "bonjour", "merci", "aide"}
+    _EXCLUDE_TRIGGERS = {
+        "catalogue", "commander", "commande", "livraison", "paiement",
+        "prix", "responsable", "bonjour", "merci", "aide",
+        # arabe/darija
+        "الكتالوج", "كتالوج", "الاسعار", "الأسعار", "طلب", "توصيل",
+    }
+
     _txt_lower = text.lower()
     _has_product_kw = any(kw in _txt_lower for kw in _PRODUCT_KEYWORDS)
     _has_age = any(p in _txt_lower for p in ["mois", " ans", "bébé", "bebe", "nourrisson"])

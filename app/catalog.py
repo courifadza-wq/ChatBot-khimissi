@@ -126,6 +126,9 @@ def parse_search_query(message: str) -> dict:
     keyword = re.sub(r"(?:bébé|bebe|nouveau[- ]?né|enfant|fille|garçon)", "", keyword)
     keyword = re.sub(r"(?:cherche|veux|voudrais|montres?[- ]?moi|je|un|une|des|le|la|les|du|de)", "", keyword)
     keyword = re.sub(r"\s+", " ", keyword).strip()
+    # Normaliser les pluriels français : ballerines → ballerine, sandales → sandale
+    keyword = re.sub(r"\b(\w{4,})es\b", r"\1e", keyword)   # ballerines → ballerine
+    keyword = re.sub(r"\b(\w{4,})s\b", r"\1", keyword)     # pantalons → pantalon
     params["keyword"] = keyword
 
     return params
