@@ -223,6 +223,33 @@ def count_products() -> int:
         return row[0] if row else 0
 
 
+def get_all_mots() -> list[str]:
+    """Retourne tous les mots-clés distincts de la colonne mot (pour fuzzy search)."""
+    with _get_conn() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT mot FROM products WHERE mot IS NOT NULL AND mot != '' AND stock > 0"
+        ).fetchall()
+        return [r[0] for r in rows]
+
+
+def fuzzy_keyword(keyword: str, threshold: float = 0.65) -> str | None:
+    """
+    Cherche le mot-clé le plus proche dans la colonne mot.
+    Retourne le mot corrigé ou None si aucun match suffisant.
+
+    Ex: "balrine" → "BALLERINE", "bibron" → "BIBERON"
+    """
+    from difflib import get_close_matches
+    if not keyword or len(keyword) < 3:
+        return None
+    mots = get_all_mots()
+    kw_up = _no_accent(keyword)   # normalisation accent + majuscules
+    matches = get_close_matches(kw_up, mots, n=1, cutoff=threshold)
+    if matches and matches[0] != kw_up:
+        return matches[0]
+    return None
+
+
 def get_categories() -> list[str]:
     """Retourne la liste des catégories disponibles."""
     with _get_conn() as conn:

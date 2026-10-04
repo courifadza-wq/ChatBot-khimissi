@@ -6,7 +6,7 @@ from functools import lru_cache
 import yaml
 
 from .config import settings
-from .database import search_products, count_products, get_categories
+from .database import search_products, count_products, get_categories, fuzzy_keyword
 
 
 # ── Données statiques depuis products.yaml ───────────────────────────────────
@@ -65,20 +65,27 @@ def format_catalog() -> str:
     return "\n".join(lines)
 
 
-def format_search_results(results: list[dict], query: str = "") -> str:
+def format_search_results(results: list[dict], query: str = "", corrected: str = "") -> str:
     """Formate une liste de produits pour affichage WhatsApp."""
     if not results:
         return (
-            "😕 Aucun produit trouvé pour cette recherche.\n\n"
+            f"😕 Aucun produit trouvé pour *\"{query}\"*.\n\n"
             "Essayez avec d'autres mots-clés ou demandez le *catalogue* pour voir les catégories."
         )
 
-    header = f"🔍 *Résultats{f' pour \"{query}\"' if query else ''} :*\n"
+    # En-tête : signaler si on a corrigé la recherche
+    if corrected:
+        header = (
+            f"🔍 *Résultats pour \"{corrected.capitalize()}\"*\n"
+            f"_(recherche approchée de \"{query}\")_\n"
+        )
+    else:
+        header = f"🔍 *Résultats{f' pour \"{query}\"' if query else ''} :*\n"
+
     lines = [header]
 
     for p in results:
         name = p["designation"]
-        # Tronquer si trop long
         if len(name) > 45:
             name = name[:42] + "..."
         age = f" ({p['age_range']})" if p.get("age_range") else ""
@@ -88,6 +95,35 @@ def format_search_results(results: list[dict], query: str = "") -> str:
     lines.append("")
     lines.append("🛒 Pour commander, dites *je veux commander* en précisant la référence.")
     return "\n".join(lines)
+
+
+def smart_search(keyword: str, max_price: float = 0, min_price: float = 0,
+                 age_hint: str = "", category: str = "", limit: int = 5) -> str:
+    """
+    Recherche intelligente avec fallback fuzzy automatique.
+    Retourne le message formaté prêt à envoyer.
+    """
+    # 1) Recherche exacte
+    results = search_products(
+        keyword=keyword, max_price=max_price, min_price=min_price,
+        age_hint=age_hint, category=category, limit=limit,
+    )
+    if results:
+        return format_search_results(results, query=keyword)
+
+    # 2) Fallback fuzzy sur mot-clé
+    if keyword:
+        corrected = fuzzy_keyword(keyword)
+        if corrected:
+            results = search_products(
+                keyword=corrected, max_price=max_price, min_price=min_price,
+                age_hint=age_hint, category=category, limit=limit,
+            )
+            if results:
+                return format_search_results(results, query=keyword, corrected=corrected)
+
+    # 3) Aucun résultat même en fuzzy
+    return format_search_results([], query=keyword)
 
 
 def parse_search_query(message: str) -> dict:

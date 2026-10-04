@@ -91,17 +91,15 @@ def reply_for(intent: str, message: str = "", client: dict | None = None, lang: 
         return format_catalog()
 
     if intent in ("prices", "product_info", "availability", "search"):
-        from .catalog import parse_search_query, format_search_results
-        from .database import search_products
+        from .catalog import parse_search_query, smart_search
         params = parse_search_query(message) if message else {}
-        results = search_products(
+        return smart_search(
             keyword=params.get("keyword", ""),
             max_price=params.get("max_price", 0),
             min_price=params.get("min_price", 0),
             age_hint=params.get("age_hint", ""),
             limit=5,
         )
-        return format_search_results(results, query=params.get("keyword", ""))
 
     if intent == "delivery":
         if _ar:
