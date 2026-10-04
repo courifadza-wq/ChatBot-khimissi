@@ -194,7 +194,43 @@ async def webhook_receive(request: Request):
         logger.warning("Erreur lecture profil client : %s", e)
         client_profile = None
 
+    # -1) Mapping direct des mots-clés arabes/darija du menu ─────────────────
+    _AR_MENU = {
+        # Catalogue
+        "الكتالوج": "products", "كتالوج": "products", "الأسعار": "products",
+        "الاسعار": "products", "اسعار": "products",
+        "الكتالوج / الأسعار": "products", "الكتالوج / الاسعار": "products",
+        # Livraison
+        "التوصيل": "delivery", "توصيل": "delivery", "التوصيل والأسعار": "delivery",
+        # Paiement
+        "الدفع": "payment", "دفع": "payment", "طريقة الدفع": "payment",
+        # Commande
+        "تطلب": "order_start", "اطلب": "order_start", "طلب": "order_start",
+        "تسجيل طلب": "order_start", "بغيت نطلب": "order_start",
+        # Aide
+        "مساعدة": "help", "واش تعرف": "help",
+    }
+    _txt_stripped = text.strip()
+    if _txt_stripped in _AR_MENU:
+        _forced_intent = _AR_MENU[_txt_stripped]
+        from .responses import reply_for
+        _ar_resp = reply_for(_forced_intent, message=text, client=client_profile, lang=lang)
+        if _ar_resp:
+            send_text_message(phone, _ar_resp)
+            return {"status": "ok"}
+        # Si order_start → pas de reply_for, passer au NLP normal
+        if _forced_intent == "order_start":
+            intent = "order_start"
+            reply = process(phone, text, intent)
+            if reply:
+                if reply == "CONFIRMED":
+                    _finalize_order(phone)
+                else:
+                    send_text_message(phone, reply)
+            return {"status": "ok"}
+
     # 0) Pré-détection recherche produit (avant NLP pour éviter les faux intents)
+
     from .catalog import parse_search_query, format_search_results, get_categories
     from .database import search_products, count_products
     _PRODUCT_KEYWORDS = {
