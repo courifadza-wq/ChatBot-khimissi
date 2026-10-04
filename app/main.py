@@ -37,7 +37,35 @@ async def lifespan(app: FastAPI):
     logger.info("Arrêt du serveur.")
 
 
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
 app = FastAPI(title="Bot WhatsApp — Ventes & Commandes", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://khemicishop.com",
+        "https://www.khemicishop.com",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+
+class ChatRequest(BaseModel):
+    message: str
+    session_id: str
+
+
+@app.post("/chat")
+async def web_chat_endpoint(body: ChatRequest):
+    """Endpoint pour le widget chat du site web khemicishop.com."""
+    from .web_chat import get_bot_reply
+    reply = get_bot_reply(session_id=body.session_id, text=body.message)
+    return {"reply": reply}
 
 
 @app.get("/webhook", response_class=PlainTextResponse)
