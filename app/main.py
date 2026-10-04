@@ -224,6 +224,42 @@ async def webhook_receive(request: Request):
         logger.info("Recherche produit directe pour : %s", text)
         return {"status": "ok"}
 
+    # 0b) Détection catégorie → ex: "Chaussures & Chaussettes", "Vêtements", "jouets"
+    if not _in_order_session(phone) and not _has_exclude:
+        _categories = get_categories()
+        # Mapping arabe/darija → catégories
+        _CAT_ALIASES = {
+            "ملابس": "Vêtements", "vetements": "Vêtements", "vetement": "Vêtements",
+            "حذاء": "Chaussures", "chaussure": "Chaussures & Chaussettes",
+            "جوارب": "Chaussures & Chaussettes",
+            "العاب": "Jouets & Éveil", "jouet": "Jouets & Éveil", "جوي": "Jouets & Éveil",
+            "نظافة": "Hygiène & Soin", "hygiene": "Hygiène & Soin", "soin": "Hygiène & Soin",
+            "هدايا": "Coffrets & Cadeaux", "cadeau": "Coffrets & Cadeaux", "هدية": "Coffrets & Cadeaux",
+            "حفاضات": "Linge & Couches", "couche": "Linge & Couches", "linge": "Linge & Couches",
+            "رضاعة": "Alimentation bébé", "alimentation": "Alimentation bébé", "biberon": "Alimentation bébé",
+            "عربية": "Puériculture", "puericulture": "Puériculture",
+        }
+        matched_cat = None
+        _txt_norm = _txt_lower.strip()
+        # Vérification directe par catégorie DB
+        for cat in _categories:
+            if cat.lower() in _txt_norm or _txt_norm in cat.lower():
+                matched_cat = cat
+                break
+        # Vérification par alias arabe/darija
+        if not matched_cat:
+            for alias, cat in _CAT_ALIASES.items():
+                if alias in _txt_norm:
+                    matched_cat = cat
+                    break
+        if matched_cat:
+            results = search_products(category=matched_cat, limit=5)
+            response = format_search_results(results, query=matched_cat)
+            send_text_message(phone, response)
+            logger.info("Recherche par catégorie : %s", matched_cat)
+            return {"status": "ok"}
+
+
     # 1) Détecter l'intention
     intent = classifier.predict(text)
     logger.info("Intention détectée : %s", intent)
