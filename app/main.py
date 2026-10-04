@@ -328,6 +328,25 @@ async def webhook_receive(request: Request):
 
     # 2) Machine à états de commande (priorité si déjà en cours ou intent commande)
     if intent == "order_start" or _in_order_session(phone):
+
+        # ── Bail-out : si l'utilisateur envoie un salut/stop, on quitte la commande ──
+        _txt_low = text.strip().lower()
+        _BAILOUT = {
+            "bonjour", "bonsoir", "salut", "salam", "hi", "hello",
+            "stop", "annuler", "quitter", "quitte", "cancel", "menu",
+            "aide", "help", "retour", "accueil",
+        }
+        _is_bailout = (
+            _txt_low in _BAILOUT
+            or intent in ("greeting", "goodbye", "cancel_order")
+        )
+        if _is_bailout and _in_order_session(phone):
+            reset_session(phone)
+            bail_resp = reply_for("greeting", message=text, client=client_profile, lang=lang)
+            if bail_resp:
+                send_text_message(phone, bail_resp)
+            return {"status": "ok"}
+
         reply = process(phone, text, intent)
         if reply == "CONFIRMED":
             order: Order = _current_order(phone)
