@@ -334,6 +334,7 @@ async def webhook_receive(request: Request):
             "bonjour", "bonsoir", "salut", "salam", "hi", "hello",
             "stop", "annuler", "quitter", "quitte", "cancel", "menu",
             "aide", "help", "retour", "accueil",
+            "catalogue", "livraison", "paiement", "prix",
         }
         _is_bailout = (
             _txt_low in _BAILOUT
