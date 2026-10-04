@@ -48,17 +48,8 @@ def order_to_excel_bytes(order) -> bytes:
     ws.append(headers)
     _style_header(ws, len(headers))
 
-    # Recherche du prix unitaire dans le catalogue
-    from .catalog import get_products
-
-    def unit_price(name):
-        for p in get_products():
-            if p["name"].lower() in name.lower() or name.lower() in p["name"].lower():
-                return p["price"]
-        return 0
-
     for it in order.items:
-        price = unit_price(it["name"])
+        price = it.get("price", 0)
         ws.append([it["name"], it["qty"], price, price * it["qty"]])
 
     # Ligne total
