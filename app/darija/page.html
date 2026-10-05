@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lexique darija — mémoire du bot</title>
+<style>
+:root{--bg:#0f1720;--card:#17212b;--line:#243140;--txt:#e7edf3;--mut:#8aa0b4;--acc:#25d366;--acc2:#3b82f6;--warn:#f59e0b;--red:#ef4444;--vio:#a78bfa}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:20}
+header h1{font-size:17px;margin:0;font-weight:650}
+.pill{background:#1f2d3a;border:1px solid var(--line);border-radius:999px;padding:3px 11px;font-size:12px;color:var(--mut);white-space:nowrap}
+.pill b{color:var(--txt)}
+.wrap{max-width:1420px;margin:0 auto;padding:18px;display:grid;grid-template-columns:400px 1fr;gap:16px;align-items:start}
+@media(max-width:1080px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+.card h3{margin:0 0 2px;font-size:15px}
+.sub{color:var(--mut);font-size:12.5px;margin-bottom:12px}
+label{display:block;font-size:12px;color:var(--mut);margin:11px 0 4px}
+input,select,textarea{width:100%;background:#0e1620;border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:9px 11px;font:inherit}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc2)}
+textarea{resize:vertical;min-height:70px}
+.big{font-size:17px;padding:12px}
+button{background:#22303d;color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:9px 13px;font:inherit;font-size:13px;cursor:pointer}
+button:hover{background:#2b3b4a}
+button.p{background:var(--acc);border-color:var(--acc);color:#04210f;font-weight:650}
+button.b{background:var(--acc2);border-color:var(--acc2);color:#fff}
+button.d{background:transparent;border-color:#5b2630;color:#f88;padding:5px 9px;font-size:12px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.seg{display:flex;background:#0e1620;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg div{flex:1;text-align:center;padding:9px 6px;cursor:pointer;font-size:13px;color:var(--mut)}
+.seg div.on{background:var(--acc2);color:#fff;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{border:1px solid var(--line);background:#0e1620;border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer;color:var(--mut);user-select:none}
+.chip.on{background:#14321f;border-color:var(--acc);color:#9ff0bf}
+.chip.ro{cursor:default;background:#111b24;color:var(--txt)}
+.ar{direction:rtl;text-align:right;font-size:15px}
+pre{background:#0b1219;border:1px solid var(--line);border-radius:9px;padding:11px;overflow:auto;font-size:12.5px;white-space:pre-wrap;word-break:break-word;margin:0}
+.kpis{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px}
+.kpi{background:#111b24;border:1px solid var(--line);border-radius:10px;padding:8px 11px;flex:1;min-width:84px}
+.kpi b{display:block;font-size:18px}
+.kpi span{color:var(--mut);font-size:11px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--mut);font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;border-bottom:1px solid var(--line)}
+td{padding:8px;border-bottom:1px solid #1c2733;vertical-align:top}
+tr:hover td{background:#131d27}
+.tag{font-size:11px;padding:2px 8px;border-radius:999px;background:#1f2d3a;color:var(--mut);border:1px solid var(--line);white-space:nowrap}
+.tag.g{background:#14321f;color:#9ff0bf;border-color:#1d5133}
+.tag.v{background:#241f3a;color:#c9bcf7;border-color:#39306b}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.two{grid-template-columns:1fr}}
+.scroll{max-height:290px;overflow:auto}
+.muted{color:var(--mut)}
+.empty{text-align:center;color:var(--mut);padding:26px 10px;font-size:13px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1b2733;border:1px solid var(--line);padding:11px 18px;border-radius:10px;display:none;z-index:99;max-width:90vw}
+.bar{height:6px;background:#0e1620;border-radius:4px;overflow:hidden;margin-top:5px}
+.bar i{display:block;height:100%;background:var(--acc)}
+details summary{cursor:pointer;color:var(--mut);font-size:12.5px;margin-top:6px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📖 Lexique darija</h1>
+  <span class="pill" id="pTenant">boutique</span>
+  <span class="pill">entrées <b id="pEnt">—</b></span>
+  <span class="pill">formulations <b id="pPat">—</b></span>
+  <span class="pill">modèle <b id="pMod">—</b></span>
+  <div style="flex:1"></div>
+  <select id="tenant" style="width:190px" onchange="switchTenant()"></select>
+  <input id="token" placeholder="token admin (si défini)" style="width:170px" oninput="saveTok()">
+  <button onclick="loadAll()">↻</button>
+</header>
+
+<div class="wrap">
+
+  <!-- ====================== COLONNE GAUCHE : AJOUT ====================== -->
+  <div>
+    <div class="card">
+      <h3>➕ Apprendre un mot au bot</h3>
+      <div class="sub">Tapez le mot tel que les clients l'écrivent sur WhatsApp.</div>
+
+      <label>Mot ou expression (darija latine, arabe ou français)</label>
+      <input id="word" class="big" placeholder="rda3a   ·   بغيت نشري   ·   chhal" oninput="autoPreview()">
+
+      <label>Équivalent dans l'autre écriture <span class="muted">(optionnel, fortement conseillé)</span></label>
+      <input id="word_ar" class="big ar" placeholder="رضاعة" oninput="autoPreview()">
+
+      <label>Ce mot désigne…</label>
+      <div class="seg" id="segMode">
+        <div class="on" data-m="produit" onclick="setMode('produit')">🛍️ un produit</div>
+        <div data-m="intention" onclick="setMode('intention')">💬 une question</div>
+      </div>
+
+      <label>À rattacher à <span class="muted" id="tgtCount"></span></label>
+      <input id="tgtFilter" placeholder="filtrer… (biberon, livraison, prix)" oninput="fillTargets()">
+      <select id="target" size="8" style="margin-top:6px" onchange="autoPreview()"></select>
+
+      <div id="kindsBox">
+        <label>Questions à couvrir autour de ce mot</label>
+        <div class="chips" id="kinds"></div>
+      </div>
+
+      <label>Profondeur de génération</label>
+      <div class="seg" id="segLvl">
+        <div data-l="1" onclick="setLvl(1)">1 · léger</div>
+        <div class="on" data-l="2" onclick="setLvl(2)">2 · standard</div>
+        <div data-l="3" onclick="setLvl(3)">3 · maximal</div>
+      </div>
+
+      <label>Note interne <span class="muted">(optionnel)</span></label>
+      <input id="note" placeholder="ex. mot entendu 3× cette semaine">
+
+      <div class="row" style="margin-top:14px">
+        <button class="b" onclick="doPreview()">👁️ Aperçu</button>
+        <button class="p" id="btnSave" onclick="doSave()">💾 Enregistrer dans la mémoire</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🧪 Tester le bot</h3>
+      <div class="sub">Écrivez comme un client, voyez ce que le bot comprend.</div>
+      <input id="tst" placeholder="3andkom rda3a ?" onkeydown="if(event.key==='Enter')doTest()">
+      <div class="row" style="margin-top:8px"><button class="b" onclick="doTest()">Envoyer</button></div>
+      <div id="tstOut" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <h3>📥 Import en lot</h3>
+      <div class="sub">Une ligne par mot : <code>mot ; mot arabe ; cible</code></div>
+      <textarea id="bulk" placeholder="rda3a;رضاعة;produit_biberon
+kerrousa;كروسة;produit_poussette
+fin rakom;وين راكم;location"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button onclick="doImport()">Importer</button>
+        <button onclick="dl()">⬇️ Exporter le lexique</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================== COLONNE DROITE ====================== -->
+  <div>
+    <div class="card">
+      <h3>👁️ Aperçu de ce que le bot va apprendre</h3>
+      <div class="sub" id="prevSub">Remplissez le formulaire : l'aperçu se met à jour tout seul.</div>
+      <div id="prev"><div class="empty">Aucun aperçu pour l'instant.</div></div>
+    </div>
+
+    <div class="card">
+      <h3>📚 Mots déjà appris <span class="muted" id="listCount"></span></h3>
+      <div class="row" style="margin-bottom:8px">
+        <input id="q" placeholder="rechercher un mot…" style="flex:1;min-width:180px" oninput="loadList()">
+      </div>
+      <div class="scroll"><table id="tbl"><tbody></tbody></table></div>
+      <div id="listEmpty" class="empty" style="display:none">Le lexique est vide — ajoutez votre premier mot à gauche.</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let MODE = 'produit', LVL = 2, KINDS = [], ALLK = [], TARGETS = {produits:[],intentions:[]}, TEN = '', TIMER = null, LAST = null;
+
+/* ---------- utilitaires ---------- */
+function tok(){ return $('token').value.trim(); }
+function saveTok(){ localStorage.setItem('admtok', tok()); }
+function qs(extra){ const p = new URLSearchParams(extra||{}); if(TEN) p.set('tenant',TEN); if(tok()) p.set('token',tok()); const s=p.toString(); return s?'?'+s:''; }
+function body(o){ return JSON.stringify(Object.assign({tenant:TEN||undefined}, o)); }
+function toast(m,ms){ const t=$('toast'); t.textContent=m; t.style.display='block'; clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none', ms||3200); }
+async function api(path, opt){
+  const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json','X-Admin-Token':tok()}}, opt||{}));
+  const txt = await r.text();
+  let j; try{ j = JSON.parse(txt); }catch(e){ j = {detail:txt}; }
+  if(!r.ok) throw new Error(j.detail || r.status);
+  return j;
+}
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function isAr(s){ return /[\u0600-\u06FF]/.test(s||''); }
+
+/* ---------- formulaire ---------- */
+function setMode(m){ MODE=m; document.querySelectorAll('#segMode div').forEach(d=>d.classList.toggle('on', d.dataset.m===m));
+  $('kindsBox').style.display = m==='produit' ? '' : 'none'; fillTargets(); autoPreview(); }
+function setLvl(l){ LVL=l; document.querySelectorAll('#segLvl div').forEach(d=>d.classList.toggle('on', +d.dataset.l===l)); autoPreview(); }
+
+function fillKinds(list){
+  ALLK = list;
+  const def = ['price','availability','info','stock','order','photo','promo'];
+  KINDS = def.filter(k=>list.some(x=>x.id===k));
+  $('kinds').innerHTML = list.map(k=>`<span class="chip ${KINDS.includes(k.id)?'on':''}" data-k="${k.id}" onclick="tgKind('${k.id}',this)">${esc(k.label)}</span>`).join('');
+}
+function tgKind(k,el){ const i=KINDS.indexOf(k); if(i<0)KINDS.push(k); else KINDS.splice(i,1); el.classList.toggle('on'); autoPreview(); }
+
+function fillTargets(){
+  const f = ($('tgtFilter').value||'').toLowerCase();
+  const cur = $('target').value;
+  const match = o => !f || (o.label+' '+o.intent+' '+(o.aliases||[]).join(' ')).toLowerCase().includes(f);
+  const prods = TARGETS.produits.filter(match), gen = TARGETS.intentions.filter(match);
+  const opt = o => `<option value="${esc(o.intent)}">${esc(o.label)}${o.references?' · '+o.references+' réf.':(o.fiche===false?' ⚠ sans fiche':'')} (${o.patterns})</option>`;
+  const neuf = `<option value="__new__">➕ créer une nouvelle famille à partir de ce mot</option>`;
+  let html = '';
+  if(MODE==='produit'){
+    html += `<optgroup label="Produits du catalogue (${prods.length})">${neuf}${prods.map(opt).join('')}</optgroup>`;
+    html += `<optgroup label="Questions générales (${gen.length})">${gen.map(opt).join('')}</optgroup>`;
+  }else{
+    html += `<optgroup label="Questions générales (${gen.length})">${gen.map(opt).join('')}</optgroup>`;
+    html += `<optgroup label="Produits du catalogue (${prods.length})">${prods.map(opt).join('')}</optgroup>`;
+  }
+  $('target').innerHTML = html;
+  if(cur) $('target').value = cur;
+  $('tgtCount').textContent = `· ${prods.length+gen.length} cibles`;
+}
+
+/* ---------- aperçu ---------- */
+function payload(){
+  return {word:$('word').value.trim(), word_ar:$('word_ar').value.trim(), mode:MODE,
+          target:$('target').value, kinds:KINDS, level:LVL, note:$('note').value.trim()};
+}
+function autoPreview(){ clearTimeout(TIMER); TIMER = setTimeout(doPreview, 450); }
+
+async function doPreview(){
+  const p = payload();
+  if(!p.word && !p.word_ar){ $('prev').innerHTML = '<div class="empty">Aucun aperçu pour l\'instant.</div>'; return; }
+  $('prevSub').textContent = 'génération…';
+  try{
+    const d = await api('/api/lexicon/preview'+qs(), {method:'POST', body: body(p)});
+    LAST = d;
+    const av = d.avant ? `<span class="tag">avant : ${esc(d.avant.intent)} · ${d.avant.confidence}</span>` : '';
+    const f = d.fiche || {};
+    const fi = (d.mode!=='produit') ? '' :
+      (f.existe===false ? '<span class="tag" style="color:#fbbf24;border-color:#6b4b14">nouvelle famille (aucun article)</span>'
+       : (f.references ? `<span class="tag g">${f.references} article(s) au catalogue</span>`
+                       : '<span class="tag" style="color:#fbbf24;border-color:#6b4b14">⚠ aucun article ne correspond — le bot reconnaîtra le mot mais sans prix</span>'));
+    const pools = [...(d.variantes_mot.latin||[]), ...(d.variantes_mot.arabe||[])]
+                   .map(v=>`<span class="chip ro ${isAr(v)?'ar':''}">${esc(v)}</span>`).join('');
+    const col = (arr,cls) => arr.length ? `<pre class="${cls}">${arr.map(esc).join('\n')}</pre>` : '<div class="empty">—</div>';
+    $('prev').innerHTML = `
+      <div class="kpis">
+        <div class="kpi"><b>${d.total}</b><span>formulations</span></div>
+        <div class="kpi"><b>${d.latin}</b><span>en latin</span></div>
+        <div class="kpi"><b>${d.arabe}</b><span>en arabe</span></div>
+        <div class="kpi"><b>niv. ${d.niveau}</b><span>profondeur</span></div>
+      </div>
+      <div class="row" style="margin-bottom:8px">${av}
+        <span class="tag v">${esc(d.cible||'aucune cible')}</span>${fi}
+        <span class="tag">${d.mode==='produit'?'produit':'question'}</span></div>
+      ${pools?`<div class="muted" style="font-size:12px">Variantes du mot reconnues :</div><div class="chips" style="margin-bottom:10px">${pools}</div>`:''}
+      <div class="two">
+        <div><div class="muted" style="font-size:12px;margin-bottom:4px">Latin / arabizi</div>${col(d.exemples.latin,'')}</div>
+        <div><div class="muted" style="font-size:12px;margin-bottom:4px">Arabe</div>${col(d.exemples.arabe,'ar')}</div>
+      </div>
+      <details><summary>Voir les ${d.total} formulations</summary><pre class="scroll">${d.tous.map(esc).join('\n')}</pre></details>`;
+    $('prevSub').textContent = `Le bot reconnaîtra ${d.total} façons de dire « ${d.mot||d.mot_ar} ».`;
+  }catch(e){ $('prevSub').textContent = 'erreur : '+e.message; }
+}
+
+/* ---------- enregistrement ---------- */
+async function doSave(){
+  const p = payload();
+  if(!p.word && !p.word_ar) return toast('Tapez d\'abord un mot.');
+  if(!p.target) return toast('Choisissez une cible dans la liste.');
+  $('btnSave').disabled = true; $('btnSave').textContent = '⏳ apprentissage…';
+  try{
+    const d = await api('/api/lexicon'+qs(), {method:'POST', body: body(p)});
+    toast(`✅ « ${d.mot||d.mot_ar} » appris : ${d.formulations} formulations · le bot répond maintenant ${d.apres.intent} (${d.apres.confidence})`, 5000);
+    $('word').value=''; $('word_ar').value=''; $('note').value='';
+    $('prev').innerHTML = '<div class="empty">Enregistré ✅</div>';
+    loadAll();
+  }catch(e){ toast('❌ '+e.message, 5000); }
+  $('btnSave').disabled = false; $('btnSave').textContent = '💾 Enregistrer dans la mémoire';
+}
+
+async function del(id){
+  if(!confirm('Retirer ce mot de la mémoire du bot ?')) return;
+  try{ await api('/api/lexicon'+qs({id}), {method:'DELETE'}); toast('Mot retiré, modèle reconstruit.'); loadAll(); }
+  catch(e){ toast('❌ '+e.message); }
+}
+
+/* ---------- test ---------- */
+async function doTest(){
+  const t = $('tst').value.trim(); if(!t) return;
+  $('tstOut').innerHTML = '<div class="muted">…</div>';
+  try{
+    const d = await api('/api/lexicon/test'+qs(), {method:'POST', body: body({text:t})});
+    const pct = Math.round(d.confidence*100);
+    const color = pct>=70?'var(--acc)':(pct>=40?'var(--warn)':'var(--red)');
+    $('tstOut').innerHTML = `
+      <div class="row"><span class="tag ${pct>=70?'g':''}">${esc(d.intent)}</span>
+        <span class="tag">${esc(d.label)}</span><span class="tag">${esc(d.method)}</span>
+        <span class="muted">${pct}%</span></div>
+      <div class="bar"><i style="width:${pct}%;background:${color}"></i></div>
+      <pre style="margin-top:8px" class="${isAr(d.reply)?'ar':''}">${esc(d.reply)}</pre>
+      ${d.alternatives.length?`<div class="muted" style="font-size:12px;margin-top:6px">aussi envisagé : ${d.alternatives.map(a=>esc(a.intent)+' ('+a.score+')').join(' · ')}</div>`:''}`;
+  }catch(e){ $('tstOut').innerHTML = '<div class="muted">erreur : '+esc(e.message)+'</div>'; }
+}
+
+/* ---------- import / export ---------- */
+async function doImport(){
+  const csv = $('bulk').value.trim(); if(!csv) return toast('Collez des lignes d\'abord.');
+  toast('Import en cours…', 8000);
+  try{
+    const d = await api('/api/lexicon/import'+qs(), {method:'POST', body: body({csv, level:LVL, mode:MODE})});
+    toast(`✅ ${d.ajoutes} mot(s) appris${d.erreurs.length?` · ${d.erreurs.length} erreur(s)`:''}`, 5000);
+    if(d.erreurs.length) console.warn(d.erreurs);
+    $('bulk').value=''; loadAll();
+  }catch(e){ toast('❌ '+e.message, 5000); }
+}
+function dl(){ window.open('/api/lexicon/export.yaml'+qs(), '_blank'); }
+
+/* ---------- chargement ---------- */
+async function loadList(){
+  try{
+    const d = await api('/api/lexicon'+qs({q:$('q').value.trim()}));
+    const rows = d.entrees;
+    $('tbl').querySelector('tbody').innerHTML = rows.map(e=>`
+      <tr>
+        <td><b class="${isAr(e.word||e.word_ar)?'ar':''}">${esc(e.word||e.word_ar)}</b>
+            ${e.word&&e.word_ar?`<div class="muted ar" style="font-size:12.5px">${esc(e.word_ar)}</div>`:''}
+            ${e.note?`<div class="muted" style="font-size:11.5px">${esc(e.note)}</div>`:''}</td>
+        <td><span class="tag ${e.mode==='produit'?'g':'v'}">${esc(e.label)}</span>
+            <div class="muted" style="font-size:11px;margin-top:3px">${esc(e.target)}</div></td>
+        <td style="white-space:nowrap">${e.patterns}<div class="muted" style="font-size:11px">niv. ${e.level}</div></td>
+        <td class="muted" style="font-size:11.5px;white-space:nowrap">${esc(e.at)}</td>
+        <td><button class="d" onclick="del('${esc(e.id).replace(/'/g,"\\'")}')">Retirer</button></td>
+      </tr>`).join('');
+    $('listEmpty').style.display = rows.length ? 'none' : 'block';
+    $('listCount').textContent = rows.length ? `· ${rows.length}` : '';
+    const s = d.etat;
+    $('pEnt').textContent = s.entrees; $('pPat').textContent = s.formulations;
+    $('pMod').textContent = `${s.modele.intents} intentions / ${s.modele.patterns} ex.`;
+  }catch(e){ toast('❌ '+e.message); }
+}
+
+async function loadAll(){
+  try{
+    const t = await api('/api/lexicon/targets'+qs());
+    TARGETS = t; fillKinds(t.familles_darija);
+    const sel = $('tenant');
+    sel.innerHTML = '<option value="">— boutique par défaut —</option>' +
+      (t.clients||[]).map(c=>`<option value="${esc(c.slug)}">${esc(c.name)}</option>`).join('');
+    sel.value = TEN;
+    $('pTenant').textContent = TEN || 'boutique par défaut';
+    fillTargets();
+    if(!$('target').value && TARGETS.intentions.length) $('target').selectedIndex = 0;
+    await loadList();
+  }catch(e){ toast('❌ '+e.message, 6000); }
+}
+function switchTenant(){ TEN = $('tenant').value; const u=new URL(location); TEN?u.searchParams.set('tenant',TEN):u.searchParams.delete('tenant'); history.replaceState({},'',u); loadAll(); }
+
+/* ---------- init ---------- */
+(function(){
+  const u = new URL(location);
+  TEN = u.searchParams.get('tenant') || '';
+  $('token').value = u.searchParams.get('token') || localStorage.getItem('admtok') || '';
+  loadAll();
+})();
+</script>
+</body>
+</html>

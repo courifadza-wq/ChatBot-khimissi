@@ -1,110 +1,84 @@
-"""
-normalize.py — Pipeline de normalisation multilingue (FR · AR · Darija · Arabizi).
-Appliqué à CHAQUE message entrant avant tout traitement.
+"""Pipeline de normalisation multilingue — utilise le moteur darija (engine.py).
 
-Pipeline :
-  1. Unicode NFKC
-  2. Suppression tashkeel (diacritiques arabes)
-  3. Normalisation orthographe arabe (أإآ→ا, ى→ي, ة→ه)
-  4. Réduction élongations (salaaam→salam, خخخ→خخ)
-  5. Vocabulaire arabizi connu (mots entiers → arabe/français)
-  6. Lowercase
+Remplace l'ancienne version basique.
+Registres couverts : français, arabizi, darija arabe, arabe standard.
 """
+from __future__ import annotations
+
 import re
 import unicodedata
 
-# ── Vocabulaire arabizi connu (mots entiers, prioritaire) ──────────────────
-# Format : mot_arabizi → équivalent reconnaissable par le bot
-_ARABIZI_VOCAB: dict[str, str] = {
-    # Salutations
-    "salam": "سلام", "slm": "سلام", "salem": "سلام",
-    "wach": "واش", "wesh": "واش", "wash": "واش", "wesh": "واش",
-    "labas": "لاباس", "lbes": "لاباس", "la bas": "لاباس",
-    "ahla": "اهلا", "ahlan": "اهلا",
-    # Questions fréquentes
-    "3andkom": "عندكم", "3andkum": "عندكم", "andkom": "عندكم",
-    "kayen": "كاين", "kayan": "كاين", "kayn": "كاين",
-    "wach kayen": "واش كاين", "wesh kayen": "واش كاين",
-    "fin": "فين", "feen": "فين",
-    "kifah": "كيفاه", "kifeh": "كيفاه",
-    # Recherche produit
-    "bghit": "بغيت", "nhab": "نحب", "nrid": "نريد",
-    "nahwas": "نحوس", "ndawer": "ندور",
-    "bchhal": "بشحال", "beshhal": "بشحال", "chhal": "شحال",
-    "souma": "سومة", "soumt": "سومة",
-    # Horaires
-    "msakker": "مسكر", "msakar": "مسكر", "msaker": "مسكر",
-    "mftu7": "مفتوح", "meftou7": "مفتوح", "meftuh": "مفتوح",
-    "sa3a": "ساعة", "sa3at": "ساعات",
-    "waqt": "وقت", "wa9t": "وقت",
-    "lyom": "اليوم", "lioum": "اليوم",
-    "ghda": "غدا", "ghedwa": "غدا",
-    # Commande
-    "ncomandi": "commander", "ncommandi": "commander",
-    "hbet": "commander", "7bet": "commander",
-    "twassal": "توصيل", "tawsil": "توصيل",
-    "livraison": "livraison",  # conservé tel quel (français)
-    # Correction ortho française fréquente
-    "bibron": "biberon", "biberoon": "biberon", "bibéron": "biberon",
-    "poussett": "poussette", "pousete": "poussette",
-    "couchet": "couche", "kouche": "couche",
-    # Arabizi chiffres isolés courants
-    "3la": "على", "3nd": "عند", "m3a": "مع",
-    "f": "في", "b": "بـ", "l": "لـ",
-}
+# Import du moteur darija (stdlib pure, pas de dépendances externes)
+from .darija.engine import norm as _darija_norm, to_arabic, to_arabizi, has_arabic
 
-# ── Détection arabizi (chiffres arabes dans un mot latin) ──────────────────
-_RE_ARABIZI = re.compile(r"\b\w*[37925]\w*\b")
+
+# ---------------------------------------------------------------------------
+#  Arabizi étendu : vocabulaire darija courant mappé à sa forme normalisée
+# ---------------------------------------------------------------------------
+_ARABIZI_VOCAB: dict[str, str] = {
+    # Horaires / fermeture
+    "msakker": "مسكر", "msaker": "مسكر", "sakker": "سكر",
+    "mftu7": "مفتوح", "mftuh": "مفتوح", "meftou7": "مفتوح",
+    "sa3at": "ساعات", "saa3at": "ساعات", "wa9t": "وقت",
+    "yefta7": "يفتح", "ysakker": "يسكر",
+    # Disponibilité
+    "kayen": "كاين", "kayna": "كاينة", "makaynch": "ماكاينش",
+    "wach kayen": "واش كاين", "wach kayna": "واش كاينة",
+    "3andkom": "عندكم", "3andi": "عندي", "3andak": "عندك",
+    "wach 3andkom": "واش عندكم",
+    # Prix
+    "bchhal": "بشحال", "chhal": "شحال", "ch7al": "شحال",
+    "bchhal yswa": "بشحال يسوى", "soumt": "سومة", "taman": "ثمن",
+    # Commande / achat
+    "bghit": "بغيت", "nhawas": "نحوس", "nahwas": "نحوس",
+    "nchri": "نشري", "chri": "شري", "bghit nchri": "بغيت نشري",
+    # Livraison
+    "twassal": "توصّل", "twassalt": "توصلت", "livraison": "livraison",
+    "bchhal twassal": "بشحال توصّل", "wach kayen livraison": "واش كاين ليفريزون",
+    # Paiement
+    "kifach nkhaless": "كيفاش نخلص", "khaless": "خلص",
+    "baridi": "بريدي", "baridimob": "بريدي موب", "ccp": "ccp",
+    # Adresse / localisation
+    "win rakom": "وين راكم", "win nlaqa": "وين نلقى", "adresse": "عنوان",
+    "boudouaou": "بودواو",
+    # Salutations
+    "salam": "سلام", "wach": "واش", "wesh": "واش",
+    "ana": "أنا", "nta": "نتا", "ntia": "نتيا",
+    # Retour
+    "rjeâ": "رجع", "rja3": "رجع",
+}
 
 
 def normalize(text: str) -> str:
+    """Normalise un message client : unicode, arabizi → arabe, nettoyage.
+
+    Retourne la forme canonique utilisée pour la recherche NLP.
+    Préserve l'arabe natif, convertit l'arabizi.
     """
-    Normalise un message pour la comparaison et la détection d'intentions.
-    Retourne le texte nettoyé (lowercase, sans diacritiques, arabizi converti).
-    """
-    # 1. Unicode NFKC (unifie les variantes de caractères)
-    text = unicodedata.normalize("NFKC", text)
+    # Utilise la normalisation du moteur darija (NFKC + tashkeel + ortho arabe)
+    return _darija_norm(text)
 
-    # 2. Suppression tashkeel (diacritiques U+064B–U+0652) + tatweel (U+0640)
-    text = re.sub(r"[\u064B-\u0652\u0640]", "", text)
 
-    # 3. Normalisation orthographe arabe
-    text = re.sub(r"[أإآٱ]", "ا", text)
-    text = text.replace("ى", "ي")
-    text = text.replace("ة", "ه")
-    text = re.sub(r"[ؤئ]", "ء", text)
-
-    # 4. Réduction élongations : 3+ répétitions → 2 max
-    text = re.sub(r"(.)\1{2,}", r"\1\1", text)
-
-    # 5. Lowercase avant lookup
-    text_lower = text.lower()
-
-    # 6. Substitution vocabulaire arabizi (mots entiers)
-    words = text_lower.split()
-    normalized_words = []
-    for w in words:
-        normalized_words.append(_ARABIZI_VOCAB.get(w, w))
-    text_lower = " ".join(normalized_words)
-
-    return text_lower.strip()
+def normalize_for_search(text: str) -> str:
+    """Version étendue : applique aussi la substitution du vocabulaire arabizi."""
+    t = text.lower().strip()
+    # Substitution vocabulaire arabizi connu
+    for lat, ar in _ARABIZI_VOCAB.items():
+        if lat in t:
+            t = t.replace(lat, ar)
+    return _darija_norm(t)
 
 
 def detect_lang(text: str) -> str:
-    """
-    Détecte la langue dominante du message.
-    Retourne : 'ar' | 'arabizi' | 'fr'
-    """
-    arabic_chars = len(re.findall(r"[\u0600-\u06FF]", text))
-    total_alpha = len(re.findall(r"[a-zA-Z\u0600-\u06FF]", text))
-
-    if total_alpha == 0:
-        return "fr"
-
-    arabic_ratio = arabic_chars / total_alpha
-
-    if arabic_ratio >= 0.4:
+    """Détecte si le texte est principalement en arabe/darija (ar) ou en français (fr)."""
+    arabic_chars = sum(1 for c in text if "\u0600" <= c <= "\u06FF")
+    ratio = arabic_chars / max(len(text.strip()), 1)
+    if ratio > 0.2:
         return "ar"
-    if _RE_ARABIZI.search(text):
-        return "arabizi"
+    # Arabizi : mots-clés courants
+    arabizi_kw = {"bghit", "kayen", "3andkom", "wach", "chhal", "bchhal",
+                  "nchri", "salam", "twassal", "msakker", "mftu7", "sa3at"}
+    words = set(text.lower().split())
+    if words & arabizi_kw:
+        return "ar"
     return "fr"

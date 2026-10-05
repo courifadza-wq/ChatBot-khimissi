@@ -33,6 +33,15 @@ async def lifespan(app: FastAPI):
         logger.info("Base de données prête.")
     except Exception as e:
         logger.error("Erreur init DB (mode dégradé sans mémoire) : %s", e)
+    # Restaurer le lexique darija au démarrage
+    try:
+        from .darija import lexicon
+        res = lexicon.restore()
+        if res["entries"]:
+            logger.info("📖 Lexique darija restauré : %d entrée(s), %d formulations",
+                        res["entries"], res["patterns"])
+    except Exception as e:
+        logger.warning("Lexique darija non chargé : %s", e)
     yield
     logger.info("Arrêt du serveur.")
 
@@ -50,9 +59,16 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:3000",
     ],
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "OPTIONS", "DELETE"],
     allow_headers=["*"],
 )
+
+# ── Lexique darija admin (/lexique + /api/lexicon/*) ─────────────────────────
+try:
+    from .darija.api import router as lexique_router
+    app.include_router(lexique_router)
+except Exception as _e:
+    logging.getLogger("main").warning("Lexique router non chargé : %s", _e)
 
 
 class ChatRequest(BaseModel):
