@@ -330,7 +330,9 @@ def get_bot_reply(session_id: str, text: str) -> str:
             except Exception:
                 pass
 
+        from .catalog import smart_search
         from .database import search_products
+
 
         # 1) Cherche avec le mot français mappé
         if fr_kw:
