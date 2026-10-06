@@ -324,7 +324,7 @@ def _inject(entry: dict) -> int:
 def add(word: str, word_ar: str = "", mode: str = "produit", target: str = "",
         kinds=DEFAULT_KINDS, level: int = 2, registers=darija.REGISTERS,
         extra=None, note: str = "", retrain: bool = True,
-        author: str = "lexique") -> dict:
+        author: str = "lexique", fr_keyword: str = "") -> dict:
     """Ajoute un mot/une expression dans la mémoire du bot."""
     word_l, word_a = _split_word(word, word_ar)
     if not (word_l or word_a):
@@ -351,6 +351,7 @@ def add(word: str, word_ar: str = "", mode: str = "produit", target: str = "",
             "kinds": list(kinds or DEFAULT_KINDS) if mode == "produit" else [],
             "registers": list(registers or darija.REGISTERS) if mode == "produit" else [],
             "level": level, "note": note, "extra": list(extra or []),
+            "fr_keyword": (fr_keyword or "").strip(),
             "patterns": pats, "at": time.strftime("%Y-%m-%d %H:%M"), "by": author,
         }
         data[eid] = entry
@@ -423,7 +424,8 @@ def entries(q: str = "", target: str = "", limit: int = 500) -> list[dict]:
             "mode": e.get("mode", "produit"), "target": e.get("target", ""),
             "label": LABELS.get(e.get("target", ""), e.get("target", "")),
             "level": e.get("level", 2), "kinds": e.get("kinds", []),
-            "note": e.get("note", ""), "at": e.get("at", ""),
+            "note": e.get("note", ""), "fr_keyword": e.get("fr_keyword", ""),
+            "at": e.get("at", ""),
             "patterns": len(e.get("patterns") or []),
             "exemples": (e.get("patterns") or [])[:6],
         })

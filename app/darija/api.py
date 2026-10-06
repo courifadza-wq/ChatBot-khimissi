@@ -73,7 +73,8 @@ async def api_add(request: Request, _: bool = Depends(require_console)):
             b.get("target", ""), b.get("kinds") or lx.DEFAULT_KINDS,
             int(b.get("level") or 2),
             b.get("registers") or list(lx.darija.REGISTERS),
-            b.get("extra") or [], b.get("note", ""))
+            b.get("extra") or [], b.get("note", ""),
+            fr_keyword=b.get("fr_keyword", ""))
     except ValueError as exc:
         raise HTTPException(400, str(exc))
 

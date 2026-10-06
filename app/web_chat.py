@@ -320,7 +320,11 @@ def get_bot_reply(session_id: str, text: str) -> str:
                 lex_data = lex_mod._load()
                 for e in lex_data.values():
                     if e.get("target") == intent:
-                        # Chercher un mot français dans les patterns
+                        # 1) Champ fr_keyword dédié (prioritaire)
+                        if e.get("fr_keyword", "").strip():
+                            fr_kw = e["fr_keyword"].strip().lower()
+                            break
+                        # 2) Sinon chercher un mot français dans les patterns
                         for p in e.get("patterns", []):
                             p_low = p.lower().strip()
                             if p_low and p_low != slug and not any("\u0600" <= c <= "\u06FF" for c in p_low):
@@ -329,6 +333,7 @@ def get_bot_reply(session_id: str, text: str) -> str:
                         break
             except Exception:
                 pass
+
 
         from .catalog import smart_search
         from .database import search_products
