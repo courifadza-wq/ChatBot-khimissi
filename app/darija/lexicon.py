@@ -37,6 +37,58 @@ MAX_ENTRIES = int(__import__("os").getenv("MAX_LEXICON_ENTRIES", "800"))
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
 
+# ---------------------------------------------------------------------------
+#  Adaptateurs — notre nlp.py a une API différente du générateur
+# ---------------------------------------------------------------------------
+class _PredictResult:
+    """Enveloppe le retour string de classifier.predict() en objet riche."""
+    __slots__ = ("intent", "confidence", "method", "alternatives")
+
+    def __init__(self, intent: str, confidence: float = 0.0,
+                 method: str = "rules", alternatives=None):
+        self.intent      = intent
+        self.confidence  = confidence
+        self.method      = method
+        self.alternatives = alternatives or []
+
+
+def _predict(text: str) -> _PredictResult:
+    """Appelle classifier.predict() et retourne un _PredictResult."""
+    intent = classifier.predict(text) if text else "fallback"
+    # Essaie d'obtenir la confiance depuis le ML (optionnel)
+    confidence, alts = 0.0, []
+    try:
+        if classifier._clf is not None and classifier._vectorizer is not None:
+            import numpy as np
+            vec   = classifier._vectorizer.transform([normalize(text)])
+            proba = classifier._clf.predict_proba(vec)[0]
+            idx   = int(proba.argmax())
+            confidence = float(proba[idx])
+            classes = classifier._clf.classes_
+            alts = [(classes[i], float(proba[i]))
+                    for i in proba.argsort()[::-1][1:4] if proba[i] > 0.05]
+    except Exception:
+        pass
+    return _PredictResult(intent, confidence, "ml" if confidence > 0 else "rules", alts)
+
+
+def _train() -> None:
+    """Reconstruit les règles et réentraîne le ML."""
+    try:
+        classifier._build_patterns()
+        classifier._train_ml()
+        log.info("📖 Classifieur ré-entraîné : %d patterns", len(classifier._patterns))
+    except Exception as exc:
+        log.warning("Ré-entraînement partiel : %s", exc)
+
+
+def _stats() -> dict:
+    """Résumé du classifieur compatible avec notre nlp.py."""
+    n_pats = len(classifier._patterns)
+    return {"intents": len(classifier.intents), "patterns": n_pats}
+
+
+
 def lexicon_file() -> Path:
     return DATA_DIR / "lexicon.yaml"
 
@@ -81,7 +133,8 @@ def entry_id(word: str, target: str) -> str:
 def targets() -> dict:
     prods, gen = [], []
     for intent in sorted(classifier.intents):
-        n = len(classifier.intents[intent])
+        conf = classifier.intents[intent]
+        n = len(conf.get("patterns", [])) if isinstance(conf, dict) else len(conf or [])
         if intent.startswith("produit_"):
             prods.append({"intent": intent, "label": intent.replace("produit_", "").replace("_", " ").title(),
                           "patterns": n})
@@ -208,7 +261,7 @@ def preview(word: str, word_ar: str = "", mode: str = "produit", target: str = "
     probe = (word_a or word_l or "").strip()
     before = {}
     if probe:
-        r = classifier.predict(probe)
+        r = _predict(probe)
         before = {"intent": r.intent, "confidence": round(r.confidence, 2), "method": r.method}
     by_script = {"latin": [p for p in pats if not darija.has_arabic(p)],
                  "arabe": [p for p in pats if darija.has_arabic(p)]}
@@ -245,15 +298,23 @@ def _save(data: dict) -> None:
 
 
 def _inject(entry: dict) -> int:
-    """Injecte les patterns d'une entrée dans le modèle en mémoire."""
+    """Injecte les patterns d'une entrée dans le modèle en mémoire.
+    Structure nlp.py: intents[name] = {"patterns": [...], ...}
+    """
     target = entry.get("target") or ""
     pats = entry.get("patterns") or []
     if not target or not pats:
         return 0
-    cur = classifier.intents.setdefault(target, [])
+    if target not in classifier.intents:
+        classifier.intents[target] = {"patterns": []}
+    conf = classifier.intents[target]
+    if isinstance(conf, dict):
+        cur = conf.setdefault("patterns", [])
+    else:
+        cur = conf  # fallback si structure plate
     have = set(cur)
     add = [p for p in pats if p not in have]
-    cur += add
+    cur.extend(add)
     return len(add)
 
 
@@ -296,15 +357,15 @@ def add(word: str, word_ar: str = "", mode: str = "produit", target: str = "",
         _save(data)
         added = _inject(entry)
         if retrain:
-            classifier.train()
+            _train()
         log.info("📖 Lexique : « %s » -> %s (%d formulations, +%d nouvelles)",
                  word_l or word_a, target, len(pats), added)
-        after = classifier.predict(word_a or word_l)
+        after = _predict(word_a or word_l)
         return {
             "ok": True, "id": eid, "mot": word_l, "mot_ar": word_a, "cible": target,
             "formulations": len(pats), "ajoutees": added,
             "entrees": len(data),
-            "modele": classifier.stats() if hasattr(classifier, "stats") else {},
+            "modele": _stats(),
             "apres": {"intent": after.intent, "confidence": round(after.confidence, 2),
                       "method": after.method},
         }
@@ -318,13 +379,15 @@ def delete(eid: str, retrain: bool = True) -> dict:
             return {"ok": False, "raison": "entrée inconnue"}
         removed = data.pop(eid)
         _save(data)
-        classifier.load()
+        # Recharge depuis intents.yaml + réinjecte le lexique restant
+        from ..nlp import reload_classifier
+        reload_classifier()
         apply_all()
         if retrain:
-            classifier.train()
+            _train()
         log.info("📖 Lexique : suppression de « %s »", removed.get("word") or eid)
         return {"ok": True, "supprime": eid, "entrees": len(data),
-                "modele": classifier.stats() if hasattr(classifier, "stats") else {}}
+                "modele": _stats()}
 
 
 def apply_all() -> dict:
@@ -342,7 +405,7 @@ def restore() -> dict:
     """Réinjecte le lexique PUIS ré-entraîne (utilisé au démarrage)."""
     res = apply_all()
     if res["entries"]:
-        classifier.train()
+        _train()
     return res
 
 
@@ -378,14 +441,14 @@ def state() -> dict:
         "entrees": len(data), "formulations": pats, "max": MAX_ENTRIES,
         "fichier": str(lexicon_file()),
         "par_cible": dict(sorted(par_cible.items(), key=lambda x: -x[1])[:15]),
-        "modele": classifier.stats() if hasattr(classifier, "stats") else {},
+        "modele": _stats(),
         "gabarits_darija": darija.stats()["gabarits_total"],
     }
 
 
 def test(text: str) -> dict:
     """Teste une phrase client : intention détectée + infos."""
-    r = classifier.predict(text)
+    r = _predict(text)
     try:
         from ..responses import reply_for
         from ..normalize import detect_lang
@@ -416,6 +479,6 @@ def import_entries(rows: list[dict], retrain: bool = True) -> dict:
         except Exception as exc:                                  # noqa: BLE001
             errs.append({"ligne": r, "erreur": str(exc)})
     if ok and retrain:
-        classifier.train()
-    return {"ajoutes": ok, "erreurs": errs[:20],
-            "modele": classifier.stats() if hasattr(classifier, "stats") else {}}
+        _train()
+    return {"ajoutes": ok, "erreurs": errs[:20], "modele": _stats()}
+
