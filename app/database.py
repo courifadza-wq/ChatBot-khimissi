@@ -63,14 +63,22 @@ def init_db() -> None:
                 stock       INTEGER DEFAULT 0,
                 price       REAL NOT NULL,
                 category    TEXT DEFAULT '',
-                age_range   TEXT DEFAULT ''
+                age_range   TEXT DEFAULT '',
+                image_url   TEXT DEFAULT ''
             );
 
             CREATE INDEX IF NOT EXISTS idx_products_designation
                 ON products (designation);
             CREATE INDEX IF NOT EXISTS idx_products_category
                 ON products (category);
+        """)
+        
+        try:
+            conn.execute("ALTER TABLE products ADD COLUMN image_url TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
 
+        conn.executescript("""
             CREATE TABLE IF NOT EXISTS order_sessions (
                 phone      TEXT PRIMARY KEY,
                 state      INTEGER NOT NULL,
@@ -224,7 +232,7 @@ def search_products(
 
         where = " AND ".join(conditions)
         query = f"""
-            SELECT id, designation, reference, stock, price, category, age_range
+            SELECT id, designation, reference, stock, price, category, age_range, image_url
             FROM products
             WHERE {where}
             ORDER BY price ASC
@@ -284,8 +292,8 @@ def bulk_insert_products(products: list[dict]) -> int:
     with _get_conn() as conn:
         conn.execute("DELETE FROM products")
         conn.executemany(
-            """INSERT INTO products (designation, reference, stock, price, category, age_range)
-               VALUES (:designation, :reference, :stock, :price, :category, :age_range)""",
+            """INSERT INTO products (designation, reference, stock, price, category, age_range, image_url)
+               VALUES (:designation, :reference, :stock, :price, :category, :age_range, :image_url)""",
             products,
         )
         conn.commit()
