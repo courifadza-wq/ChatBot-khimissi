@@ -228,6 +228,65 @@ def get_bot_reply(session_id: str, text: str) -> str:
         if reply:
             return reply
 
+    # ── Intent produit_* du lexique darija ─────────────────────────────
+    if intent.startswith("produit_") and not _in_session(session_id):
+        slug = intent.replace("produit_", "").replace("_", " ")
+
+        # Mapping darija → mots-clés français pour la recherche catalogue
+        _DARIJA_FR = {
+            "rda3a": "biberon", "kerrousa": "poussette", "kouchat": "couche",
+            "bsiklit": "tricycle", "7wija": "jouet", "sabbat": "chaussure",
+            "sarwal": "pantalon", "roba": "robe", "bavette": "bavoir",
+            "dekkane": "coffret", "doudou": "peluche", "saboun": "savon",
+            "creme": "crème", "chompoing": "shampoing", "lingette": "lingette",
+            "biberon": "biberon", "poussette": "poussette", "couche": "couche",
+            "jouet": "jouet", "pyjama": "pyjama", "body": "body",
+            "sucette": "sucette", "tetine": "tétine", "hochet": "hochet",
+        }
+        fr_kw = _DARIJA_FR.get(slug.strip(), "")
+
+        from .catalog import smart_search
+        from .database import search_products
+
+        # 1) Cherche avec le mot français mappé
+        if fr_kw:
+            result = smart_search(fr_kw)
+            if result and "Aucun résultat" not in result:
+                return result
+
+        # 2) Cherche avec le slug brut
+        result = smart_search(slug)
+        if result and "Aucun résultat" not in result:
+            return result
+
+        # 3) Cherche le mot original dans le lexique
+        try:
+            from .darija import lexicon as lex_mod
+            lex_data = lex_mod._load()
+            for e in lex_data.values():
+                if e.get("target") == intent:
+                    for w in (e.get("word", ""), e.get("word_ar", "")):
+                        if w and w != slug:
+                            result = smart_search(w)
+                            if result and "Aucun résultat" not in result:
+                                return result
+                    break
+        except Exception:
+            pass
+
+        # 4) Recherche directe dans la base
+        results = search_products(keyword=fr_kw or slug, limit=5)
+        if results:
+            return format_search_results(results, query=slug)
+
+        # Dernier fallback
+        return (
+            f"🔍 Vous cherchez *{slug}* ?\n"
+            f"Je n'ai pas trouvé ce produit exact dans le catalogue.\n\n"
+            f"Tapez *catalogue* pour voir toutes nos catégories, "
+            f"ou décrivez le produit autrement 😊"
+        )
+
     # ── Réponse standard ─────────────────────────────────────────────
     response = reply_for(intent, message=text, client=client_profile, lang=lang)
     if response:
