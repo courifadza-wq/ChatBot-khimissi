@@ -22,7 +22,7 @@ def get_bot_reply(session_id: str, text: str) -> str:
 
     # ── Journal : helper pour logger + retourner ─────────────────────
     def _log(reply: str, intent: str = "unknown", confidence: float = 0.0,
-             method: str = "direct") -> str:
+             method: str = "direct", products: list = None) -> dict | str:
         try:
             log_message(
                 text=text, intent=intent, confidence=confidence, method=method,
@@ -31,6 +31,8 @@ def get_bot_reply(session_id: str, text: str) -> str:
             )
         except Exception:
             pass
+        if products:
+            return {"reply": reply, "products": products}
         return reply
 
 
@@ -114,8 +116,9 @@ def get_bot_reply(session_id: str, text: str) -> str:
     _has_excl = any(w in _tl for w in _EXCLUDE)
 
     if (_has_kw or _has_age or _has_price) and not _has_excl and not _in_session(session_id):
-        from .catalog import smart_search
-        return _log(smart_search(text_norm), intent="product_search", confidence=1.0, method="keyword")
+        from .catalog import smart_search_with_products
+        reply_text, prods = smart_search_with_products(text_norm)
+        return _log(reply_text, intent="product_search", confidence=1.0, method="keyword", products=prods)
 
 
     # ── Détection catégorie ──────────────────────────────────────────
@@ -143,7 +146,7 @@ def get_bot_reply(session_id: str, text: str) -> str:
                     break
         if matched_cat:
             results = search_products(category=matched_cat, limit=5)
-            return _log(format_search_results(results, query=matched_cat), intent="category_search", confidence=1.0, method="keyword")
+            return _log(format_search_results(results, query=matched_cat), intent="category_search", confidence=1.0, method="keyword", products=results)
 
 
     # ── NLP ──────────────────────────────────────────────────────────
@@ -335,20 +338,19 @@ def get_bot_reply(session_id: str, text: str) -> str:
                 pass
 
 
-        from .catalog import smart_search
+        from .catalog import smart_search_with_products
         from .database import search_products
-
 
         # 1) Cherche avec le mot français mappé
         if fr_kw:
-            result = smart_search(fr_kw)
-            if result and "Aucun résultat" not in result:
-                return _log(result, intent=intent, confidence=_nlp_conf, method=_nlp_method)
+            result_text, prods = smart_search_with_products(fr_kw)
+            if result_text and "Aucun résultat" not in result_text:
+                return _log(result_text, intent=intent, confidence=_nlp_conf, method=_nlp_method, products=prods)
 
         # 2) Cherche avec le slug brut
-        result = smart_search(slug)
-        if result and "Aucun résultat" not in result:
-            return _log(result, intent=intent, confidence=_nlp_conf, method=_nlp_method)
+        result_text, prods = smart_search_with_products(slug)
+        if result_text and "Aucun résultat" not in result_text:
+            return _log(result_text, intent=intent, confidence=_nlp_conf, method=_nlp_method, products=prods)
 
         # 3) Cherche le mot original dans le lexique
         try:
@@ -358,9 +360,9 @@ def get_bot_reply(session_id: str, text: str) -> str:
                 if e.get("target") == intent:
                     for w in (e.get("word", ""), e.get("word_ar", "")):
                         if w and w != slug:
-                            result = smart_search(w)
-                            if result and "Aucun résultat" not in result:
-                                return _log(result, intent=intent, confidence=_nlp_conf, method=_nlp_method)
+                            result_text, prods = smart_search_with_products(w)
+                            if result_text and "Aucun résultat" not in result_text:
+                                return _log(result_text, intent=intent, confidence=_nlp_conf, method=_nlp_method, products=prods)
                     break
         except Exception:
             pass
@@ -368,7 +370,7 @@ def get_bot_reply(session_id: str, text: str) -> str:
         # 4) Recherche directe dans la base
         results = search_products(keyword=fr_kw or slug, limit=5)
         if results:
-            return _log(format_search_results(results, query=slug), intent=intent, confidence=_nlp_conf, method=_nlp_method)
+            return _log(format_search_results(results, query=slug), intent=intent, confidence=_nlp_conf, method=_nlp_method, products=results)
 
         # Dernier fallback
         return _log(
@@ -394,7 +396,7 @@ def get_bot_reply(session_id: str, text: str) -> str:
         if kw or params.get("age_hint") or params.get("max_price"):
             results = search_products(keyword=kw, limit=5)
             if results:
-                return _log(format_search_results(results, query=kw or text), intent=intent, confidence=_nlp_conf, method=_nlp_method)
+                return _log(format_search_results(results, query=kw or text), intent=intent, confidence=_nlp_conf, method=_nlp_method, products=results)
             return _log(
                 f"😕 Aucun résultat pour *\"{text}\"*.\n\n"
                 "Essayez d'autres mots, ou tapez *catalogue* pour voir les catégories.",

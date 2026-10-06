@@ -88,6 +88,8 @@ async def web_chat_endpoint(body: ChatRequest):
     """Endpoint pour le widget chat du site web khemicishop.com."""
     from .web_chat import get_bot_reply
     reply = get_bot_reply(session_id=body.session_id, text=body.message)
+    if isinstance(reply, dict):
+        return reply
     return {"reply": reply}
 
 

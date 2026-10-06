@@ -97,21 +97,16 @@ def format_search_results(results: list[dict], query: str = "", corrected: str =
     return "\n".join(lines)
 
 
-def smart_search(keyword: str, max_price: float = 0, min_price: float = 0,
-                 age_hint: str = "", category: str = "", limit: int = 5) -> str:
-    """
-    Recherche intelligente avec fallback fuzzy automatique.
-    Retourne le message formaté prêt à envoyer.
-    """
-    # 1) Recherche exacte
+def smart_search_with_products(keyword: str, max_price: float = 0, min_price: float = 0,
+                               age_hint: str = "", category: str = "", limit: int = 5) -> tuple[str, list[dict]]:
+    """Recherche intelligente retournant (message_texte, liste_produits)."""
     results = search_products(
         keyword=keyword, max_price=max_price, min_price=min_price,
         age_hint=age_hint, category=category, limit=limit,
     )
     if results:
-        return format_search_results(results, query=keyword)
+        return format_search_results(results, query=keyword), results
 
-    # 2) Fallback fuzzy sur mot-clé
     if keyword:
         corrected = fuzzy_keyword(keyword)
         if corrected:
@@ -120,10 +115,14 @@ def smart_search(keyword: str, max_price: float = 0, min_price: float = 0,
                 age_hint=age_hint, category=category, limit=limit,
             )
             if results:
-                return format_search_results(results, query=keyword, corrected=corrected)
+                return format_search_results(results, query=keyword, corrected=corrected), results
 
-    # 3) Aucun résultat même en fuzzy
-    return format_search_results([], query=keyword)
+    return format_search_results([], query=keyword), []
+
+def smart_search(keyword: str, max_price: float = 0, min_price: float = 0,
+                 age_hint: str = "", category: str = "", limit: int = 5) -> str:
+    """Version originale retournant uniquement le texte (pour compatibilité)."""
+    return smart_search_with_products(keyword, max_price, min_price, age_hint, category, limit)[0]
 
 
 def parse_search_query(message: str) -> dict:

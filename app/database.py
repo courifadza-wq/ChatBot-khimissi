@@ -224,7 +224,7 @@ def search_products(
 
         where = " AND ".join(conditions)
         query = f"""
-            SELECT designation, reference, stock, price, category, age_range
+            SELECT id, designation, reference, stock, price, category, age_range
             FROM products
             WHERE {where}
             ORDER BY price ASC
