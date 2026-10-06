@@ -83,7 +83,7 @@ class ChatRequest(BaseModel):
     session_id: str
 
 
-@app.post("/chat")
+@app.post("/web-chat")
 async def web_chat_endpoint(body: ChatRequest):
     """Endpoint pour le widget chat du site web khemicishop.com."""
     from .web_chat import get_bot_reply
