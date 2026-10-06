@@ -78,7 +78,27 @@ def init_db() -> None:
                 client_json TEXT DEFAULT NULL,
                 updated_at TEXT DEFAULT (datetime('now'))
             );
+
+            CREATE TABLE IF NOT EXISTS chat_log (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                text       TEXT NOT NULL,
+                intent     TEXT DEFAULT 'fallback',
+                confidence REAL DEFAULT 0.0,
+                method     TEXT DEFAULT '',
+                responded  INTEGER DEFAULT 0,
+                session_id TEXT DEFAULT '',
+                source     TEXT DEFAULT 'web',
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_chat_log_created
+                ON chat_log (created_at);
+            CREATE INDEX IF NOT EXISTS idx_chat_log_intent
+                ON chat_log (intent);
         """)
+    # Auto-cleanup : supprimer les logs > 30 jours
+    with _get_conn() as conn:
+        conn.execute("DELETE FROM chat_log WHERE created_at < datetime('now', '-30 days')")
     logger.info("Base de données initialisée : %s", DB_PATH)
 
 
@@ -370,3 +390,108 @@ def touch_client(phone: str) -> None:
             "UPDATE clients SET last_seen = ? WHERE phone = ?", (now, phone)
         )
         conn.commit()
+
+
+# -----------------------------------------------------------
+# Journal des messages (chat_log)
+# -----------------------------------------------------------
+def log_message(text: str, intent: str = "fallback", confidence: float = 0.0,
+                method: str = "", responded: bool = False,
+                session_id: str = "", source: str = "web") -> None:
+    """Enregistre un message client dans le journal."""
+    try:
+        with _get_conn() as conn:
+            conn.execute("""
+                INSERT INTO chat_log (text, intent, confidence, method, responded, session_id, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (text[:500], intent, round(confidence, 4), method, int(responded), session_id, source))
+    except Exception as e:
+        logger.error("Erreur log_message: %s", e)
+
+
+def get_journal(q: str = "", intent: str = "", min_conf: float = -1,
+                max_conf: float = 2, fallback_only: bool = False,
+                page: int = 1, per_page: int = 50) -> dict:
+    """Retourne les logs paginés avec filtres."""
+    with _get_conn() as conn:
+        where, params = ["1=1"], []
+
+        if q:
+            where.append("text LIKE ?")
+            params.append(f"%{q}%")
+        if intent:
+            where.append("intent = ?")
+            params.append(intent)
+        if fallback_only:
+            where.append("(intent = 'fallback' OR confidence < 0.4)")
+        if min_conf >= 0:
+            where.append("confidence >= ?")
+            params.append(min_conf)
+        if max_conf < 2:
+            where.append("confidence <= ?")
+            params.append(max_conf)
+
+        w = " AND ".join(where)
+
+        total = conn.execute(f"SELECT COUNT(*) FROM chat_log WHERE {w}", params).fetchone()[0]
+        offset = (page - 1) * per_page
+        rows = conn.execute(
+            f"SELECT * FROM chat_log WHERE {w} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            params + [per_page, offset]
+        ).fetchall()
+
+        return {
+            "items": [dict(r) for r in rows],
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "last_page": max(1, (total + per_page - 1) // per_page),
+        }
+
+
+def get_journal_stats() -> dict:
+    """Statistiques du journal : totaux, taux fallback, top intents, mots non compris."""
+    with _get_conn() as conn:
+        total = conn.execute("SELECT COUNT(*) FROM chat_log").fetchone()[0]
+        fallbacks = conn.execute(
+            "SELECT COUNT(*) FROM chat_log WHERE intent = 'fallback' OR confidence < 0.4"
+        ).fetchone()[0]
+        today = conn.execute(
+            "SELECT COUNT(*) FROM chat_log WHERE created_at >= datetime('now', '-1 day')"
+        ).fetchone()[0]
+        week = conn.execute(
+            "SELECT COUNT(*) FROM chat_log WHERE created_at >= datetime('now', '-7 days')"
+        ).fetchone()[0]
+
+        # Top intents
+        top_intents = conn.execute("""
+            SELECT intent, COUNT(*) as cnt, ROUND(AVG(confidence), 2) as avg_conf
+            FROM chat_log GROUP BY intent ORDER BY cnt DESC LIMIT 15
+        """).fetchall()
+
+        # Mots non compris (fallback) les plus fréquents
+        top_fallbacks = conn.execute("""
+            SELECT text, COUNT(*) as cnt
+            FROM chat_log
+            WHERE intent = 'fallback' OR confidence < 0.4
+            GROUP BY text ORDER BY cnt DESC LIMIT 20
+        """).fetchall()
+
+        return {
+            "total": total,
+            "fallbacks": fallbacks,
+            "fallback_rate": round(fallbacks / max(total, 1) * 100, 1),
+            "today": today,
+            "week": week,
+            "top_intents": [{"intent": r["intent"], "count": r["cnt"], "avg_conf": r["avg_conf"]} for r in top_intents],
+            "top_fallbacks": [{"text": r["text"], "count": r["cnt"]} for r in top_fallbacks],
+        }
+
+
+def cleanup_journal(days: int = 30) -> int:
+    """Supprime les logs plus vieux que N jours. Retourne le nombre supprimé."""
+    with _get_conn() as conn:
+        cur = conn.execute(
+            f"DELETE FROM chat_log WHERE created_at < datetime('now', '-{days} days')"
+        )
+        return cur.rowcount

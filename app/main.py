@@ -70,6 +70,13 @@ try:
 except Exception as _e:
     logging.getLogger("main").warning("Lexique router non chargé : %s", _e)
 
+# ── Journal des messages (/api/journal/*) ─────────────────────────────────────
+try:
+    from .darija.journal_api import router as journal_router
+    app.include_router(journal_router)
+except Exception as _e:
+    logging.getLogger("main").warning("Journal router non chargé : %s", _e)
+
 
 class ChatRequest(BaseModel):
     message: str

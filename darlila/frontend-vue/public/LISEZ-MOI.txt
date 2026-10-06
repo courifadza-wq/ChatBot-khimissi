@@ -1,0 +1,36 @@
+============================================================
+ VIDEOS DU HERO — Planet Kids
+============================================================
+Déposez ici vos fichiers vidéos (jusqu'à 6) :
+
+    hero-video.mp4
+    hero2-video.mp4
+    hero3-video.mp4
+    hero4-video.mp4
+    hero5-video.mp4
+    hero6-video.mp4
+
+Elles sont détectées AUTOMATIQUEMENT et intégrées au
+diaporama du hero dans cet ordre :
+
+    image (7s) → vidéo 1 (7s) → vidéo 2 (7s) → ...
+    → vidéo 6 (7s) → image → ...
+
+Conseils pour des vidéos OPTIMALES :
+• Format paysage (1920×1080 ou moins)
+• H.264, MP4, SANS audio (le site les joue en muet)
+• 5 à 15 Mo max par vidéo (chargement rapide en 3G/4G)
+• 7 secondes maximum par vidéo (durée d'affichage)
+• Utilisez HandBrake (gratuit) pour compresser :
+  - Preset "Fast 1080p30"
+  - Cochez "Web Optimized"
+  - Décochez l'audio
+
+RESPONSIVE :
+Les vidéos utilisent object-fit:cover → elles remplissent
+l'écran sur TOUS les appareils (desktop, tablette, mobile)
+sans déformation ni bandes noires. Exactement comme l'image.
+
+En production, Vite les copie dans dist/ et l'outil de
+déploiement les téléverse automatiquement.
+============================================================

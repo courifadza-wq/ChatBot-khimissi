@@ -14,7 +14,7 @@ def get_bot_reply(session_id: str, text: str) -> str:
     from .responses import reply_for
     from .order import process, reset_session
     from .email_sender import send_order_email
-    from .database import get_client, touch_client, upsert_client, save_order
+    from .database import get_client, touch_client, upsert_client, save_order, log_message
 
     text = text.strip()
     if not text:
@@ -132,6 +132,31 @@ def get_bot_reply(session_id: str, text: str) -> str:
 
     # ── NLP ──────────────────────────────────────────────────────────
     intent = classifier.predict(text)
+
+    # ── Journal : capturer la confiance ───────────────────────────────
+    _log_conf = 0.0
+    _log_method = "pattern"
+    try:
+        from .darija.lexicon import _predict
+        _pr = _predict(text)
+        _log_conf = _pr.confidence
+        _log_method = _pr.method
+    except Exception:
+        pass
+
+    def _reply_and_log(reply: str, final_intent: str = "") -> str:
+        """Log le message puis retourne la réponse."""
+        try:
+            log_message(
+                text=text, intent=final_intent or intent,
+                confidence=_log_conf, method=_log_method,
+                responded=bool(reply and "Aucun résultat" not in reply and "pas bien compris" not in reply),
+                session_id=session_id, source="web",
+            )
+        except Exception:
+            pass
+        return reply
+
 
     # ── Détection par mots-clés (complète le NLP) ────────────────────
     _KEYWORD_INTENT: dict[str, tuple[str, ...]] = {
@@ -290,7 +315,7 @@ def get_bot_reply(session_id: str, text: str) -> str:
     # ── Réponse standard ─────────────────────────────────────────────
     response = reply_for(intent, message=text, client=client_profile, lang=lang)
     if response:
-        return response
+        return _reply_and_log(response)
 
     # ── Fallback recherche ───────────────────────────────────────────
     if count_products() > 0:
@@ -301,13 +326,13 @@ def get_bot_reply(session_id: str, text: str) -> str:
         if kw or params.get("age_hint") or params.get("max_price"):
             results = search_products(keyword=kw, limit=5)
             if results:
-                return format_search_results(results, query=kw or text)
-            return (
+                return _reply_and_log(format_search_results(results, query=kw or text))
+            return _reply_and_log(
                 f"😕 Aucun résultat pour *\"{text}\"*.\n\n"
                 "Essayez d'autres mots, ou tapez *catalogue* pour voir les catégories."
             )
 
-    return (
+    return _reply_and_log(
         "Désolé, je n'ai pas bien compris 😅.\n"
         "Demandez-moi : *produits*, *prix*, *livraison*, *paiement*, ou *je veux commander*."
     )

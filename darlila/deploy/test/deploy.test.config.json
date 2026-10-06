@@ -1,0 +1,44 @@
+{
+  "_commentaire": [
+    "Configuration de TEST : cible le serveur Hostinger simulé",
+    "(deploy/test/fake-hostinger.py) — aucun compte réel n'est utilisé.",
+    "Les vérifications finales pointent vers l'API simulée et le serveur",
+    "de développement Vite qui tournent en local."
+  ],
+
+  "host": "127.0.0.1",
+  "port": 2222,
+  "username": "u123456789",
+  "password": "test123",
+  "privateKeyFile": null,
+
+  "remote": {
+    "frontendDir": "/home/u123456789/domains/darlila.com/public_html",
+    "backendDir": "/home/u123456789/domains/api.darlila.com",
+    "publicSubdir": "public_html",
+    "phpBinary": "php",
+    "composerBinary": "composer"
+  },
+
+  "apiBaseUrl": "http://127.0.0.1:8000/api",
+  "frontendUrl": "http://127.0.0.1:5173",
+
+  "runSeeder": true,
+  "cleanFrontend": false,
+
+  "env": {
+    "APP_ENV": "production",
+    "APP_DEBUG": "false",
+    "APP_URL": "http://127.0.0.1:8000",
+    "FRONTEND_URL": "http://127.0.0.1:5173",
+    "DB_CONNECTION": "mysql",
+    "DB_HOST": "localhost",
+    "DB_DATABASE": "u123456789_darlila",
+    "DB_USERNAME": "u123456789_admin",
+    "DB_PASSWORD": "mot-de-passe-mysql-test",
+    "MAIL_MAILER": "log",
+    "CORS_ALLOWED_ORIGINS": "http://127.0.0.1:5173",
+    "ADMIN_EMAIL": "admin@darlila.dz",
+    "ADMIN_PASSWORD": "password"
+  }
+}
