@@ -20,6 +20,20 @@ def get_bot_reply(session_id: str, text: str) -> str:
     if not text:
         return "Bonjour ! Comment puis-je vous aider ? 😊"
 
+    # ── Journal : helper pour logger + retourner ─────────────────────
+    def _log(reply: str, intent: str = "unknown", confidence: float = 0.0,
+             method: str = "direct") -> str:
+        try:
+            log_message(
+                text=text, intent=intent, confidence=confidence, method=method,
+                responded=bool(reply and "Aucun résultat" not in reply and "pas bien compris" not in reply),
+                session_id=session_id, source="web",
+            )
+        except Exception:
+            pass
+        return reply
+
+
     # ── Normalisation (arabizi, diacritiques, élongations) ───────────
     from .normalize import normalize, detect_lang
     text_norm = normalize(text)   # version normalisée pour la comparaison
@@ -101,7 +115,8 @@ def get_bot_reply(session_id: str, text: str) -> str:
 
     if (_has_kw or _has_age or _has_price) and not _has_excl and not _in_session(session_id):
         from .catalog import smart_search
-        return smart_search(text_norm)
+        return _log(smart_search(text_norm), intent="product_search", confidence=1.0, method="keyword")
+
 
     # ── Détection catégorie ──────────────────────────────────────────
     if not _in_session(session_id) and not _has_excl:
@@ -128,35 +143,22 @@ def get_bot_reply(session_id: str, text: str) -> str:
                     break
         if matched_cat:
             results = search_products(category=matched_cat, limit=5)
-            return format_search_results(results, query=matched_cat)
+            return _log(format_search_results(results, query=matched_cat), intent="category_search", confidence=1.0, method="keyword")
+
 
     # ── NLP ──────────────────────────────────────────────────────────
     intent = classifier.predict(text)
 
-    # ── Journal : capturer la confiance ───────────────────────────────
-    _log_conf = 0.0
-    _log_method = "pattern"
+    # ── Capturer la confiance NLP ────────────────────────────────────
+    _nlp_conf = 0.0
+    _nlp_method = "pattern"
     try:
         from .darija.lexicon import _predict
         _pr = _predict(text)
-        _log_conf = _pr.confidence
-        _log_method = _pr.method
+        _nlp_conf = _pr.confidence
+        _nlp_method = _pr.method
     except Exception:
         pass
-
-    def _reply_and_log(reply: str, final_intent: str = "") -> str:
-        """Log le message puis retourne la réponse."""
-        try:
-            log_message(
-                text=text, intent=final_intent or intent,
-                confidence=_log_conf, method=_log_method,
-                responded=bool(reply and "Aucun résultat" not in reply and "pas bien compris" not in reply),
-                session_id=session_id, source="web",
-            )
-        except Exception:
-            pass
-        return reply
-
 
     # ── Détection par mots-clés (complète le NLP) ────────────────────
     _KEYWORD_INTENT: dict[str, tuple[str, ...]] = {
@@ -277,12 +279,12 @@ def get_bot_reply(session_id: str, text: str) -> str:
         if fr_kw:
             result = smart_search(fr_kw)
             if result and "Aucun résultat" not in result:
-                return result
+                return _log(result, intent=intent, confidence=_nlp_conf, method=_nlp_method)
 
         # 2) Cherche avec le slug brut
         result = smart_search(slug)
         if result and "Aucun résultat" not in result:
-            return result
+            return _log(result, intent=intent, confidence=_nlp_conf, method=_nlp_method)
 
         # 3) Cherche le mot original dans le lexique
         try:
@@ -294,7 +296,7 @@ def get_bot_reply(session_id: str, text: str) -> str:
                         if w and w != slug:
                             result = smart_search(w)
                             if result and "Aucun résultat" not in result:
-                                return result
+                                return _log(result, intent=intent, confidence=_nlp_conf, method=_nlp_method)
                     break
         except Exception:
             pass
@@ -302,20 +304,22 @@ def get_bot_reply(session_id: str, text: str) -> str:
         # 4) Recherche directe dans la base
         results = search_products(keyword=fr_kw or slug, limit=5)
         if results:
-            return format_search_results(results, query=slug)
+            return _log(format_search_results(results, query=slug), intent=intent, confidence=_nlp_conf, method=_nlp_method)
 
         # Dernier fallback
-        return (
+        return _log(
             f"🔍 Vous cherchez *{slug}* ?\n"
             f"Je n'ai pas trouvé ce produit exact dans le catalogue.\n\n"
             f"Tapez *catalogue* pour voir toutes nos catégories, "
-            f"ou décrivez le produit autrement 😊"
+            f"ou décrivez le produit autrement 😊",
+            intent=intent, confidence=_nlp_conf, method=_nlp_method
         )
+
 
     # ── Réponse standard ─────────────────────────────────────────────
     response = reply_for(intent, message=text, client=client_profile, lang=lang)
     if response:
-        return _reply_and_log(response)
+        return _log(response, intent=intent, confidence=_nlp_conf, method=_nlp_method)
 
     # ── Fallback recherche ───────────────────────────────────────────
     if count_products() > 0:
@@ -326,16 +330,19 @@ def get_bot_reply(session_id: str, text: str) -> str:
         if kw or params.get("age_hint") or params.get("max_price"):
             results = search_products(keyword=kw, limit=5)
             if results:
-                return _reply_and_log(format_search_results(results, query=kw or text))
-            return _reply_and_log(
+                return _log(format_search_results(results, query=kw or text), intent=intent, confidence=_nlp_conf, method=_nlp_method)
+            return _log(
                 f"😕 Aucun résultat pour *\"{text}\"*.\n\n"
-                "Essayez d'autres mots, ou tapez *catalogue* pour voir les catégories."
+                "Essayez d'autres mots, ou tapez *catalogue* pour voir les catégories.",
+                intent="fallback", confidence=_nlp_conf, method=_nlp_method
             )
 
-    return _reply_and_log(
+    return _log(
         "Désolé, je n'ai pas bien compris 😅.\n"
-        "Demandez-moi : *produits*, *prix*, *livraison*, *paiement*, ou *je veux commander*."
+        "Demandez-moi : *produits*, *prix*, *livraison*, *paiement*, ou *je veux commander*.",
+        intent="fallback", confidence=_nlp_conf, method=_nlp_method
     )
+
 
 
 def _in_session(session_id: str) -> bool:
