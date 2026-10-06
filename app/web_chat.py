@@ -261,18 +261,75 @@ def get_bot_reply(session_id: str, text: str) -> str:
 
         # Mapping darija → mots-clés français pour la recherche catalogue
         _DARIJA_FR = {
-            "rda3a": "biberon", "kerrousa": "poussette", "kouchat": "couche",
-            "bsiklit": "tricycle", "7wija": "jouet", "sabbat": "chaussure",
-            "sarwal": "pantalon", "roba": "robe", "bavette": "bavoir",
-            "dekkane": "coffret", "doudou": "peluche", "saboun": "savon",
-            "creme": "crème", "chompoing": "shampoing", "lingette": "lingette",
-            "biberon": "biberon", "poussette": "poussette", "couche": "couche",
-            "jouet": "jouet", "pyjama": "pyjama", "body": "body",
-            "sucette": "sucette", "tetine": "tétine", "hochet": "hochet",
+            # Alimentation bébé
+            "rda3a": "biberon", "reda3a": "biberon", "bibrou": "biberon",
+            "biberou": "biberon", "biberon": "biberon",
+            "sucette": "sucette", "tottota": "sucette", "totota": "sucette",
+            "tetine": "tétine", "tetina": "tétine",
+            # Vêtements
+            "serwal": "pantalon", "sarwal": "pantalon", "sarwel": "pantalon",
+            "serwel": "pantalon", "pantalon": "pantalon",
+            "roba": "robe", "robe": "robe", "keswa": "robe",
+            "tricou": "t-shirt", "trikou": "t-shirt", "tshirt": "t-shirt",
+            "gilet": "gilet", "jilet": "gilet", "gileh": "gilet",
+            "veste": "veste", "jaquette": "veste", "vest": "veste",
+            "pyjama": "pyjama", "bijama": "pyjama",
+            "body": "body", "bodi": "body",
+            "bavette": "bavoir", "bavoir": "bavoir", "baveta": "bavoir",
+            "kombinezon": "combinaison", "combinaison": "combinaison",
+            "jogging": "jogging", "training": "jogging",
+            "short": "short", "calecon": "short",
+            "manteau": "manteau", "manto": "manteau", "kabbout": "manteau",
+            "pull": "pull", "tricot": "pull",
+            "chaussette": "chaussette", "jwareb": "chaussette", "chosette": "chaussette",
+            "ensemble": "ensemble", "taqm": "ensemble",
+            # Chaussures
+            "sabbat": "chaussure", "chaussure": "chaussure", "hdiya": "chaussure",
+            "sabat": "chaussure", "sbbat": "chaussure",
+            "sandale": "sandale", "sandala": "sandale",
+            "basket": "basket", "baskit": "basket",
+            "ballerine": "ballerine", "balerina": "ballerine",
+            # Puériculture
+            "kerrousa": "poussette", "karroussa": "poussette", "poussette": "poussette",
+            "kouchat": "couche", "couche": "couche", "kouchet": "couche",
+            "bsiklit": "tricycle", "bsiklat": "tricycle", "tricycle": "tricycle",
+            "baniou": "baignoire", "baignoire": "baignoire",
+            "chaise": "chaise haute", "korsi": "chaise haute",
+            # Jouets
+            "7wija": "jouet", "la3ba": "jouet", "jouet": "jouet", "laba": "jouet",
+            "doudou": "peluche", "peluche": "peluche",
+            "hochet": "hochet",
+            # Hygiène
+            "saboun": "savon", "savon": "savon",
+            "creme": "crème", "krem": "crème",
+            "chompoing": "shampoing", "shampoing": "shampoing", "champo": "shampoing",
+            "lingette": "lingette",
+            # Cadeaux
+            "dekkane": "coffret", "coffret": "coffret", "cadeau": "cadeau",
+            "hdia": "cadeau", "hdiya": "cadeau",
+            # Linge
+            "couverture": "couverture", "ghta": "couverture",
+            "couette": "couette",
         }
         fr_kw = _DARIJA_FR.get(slug.strip(), "")
 
-        from .catalog import smart_search
+        # ── Fallback dynamique : chercher le mot FR dans le lexique ───
+        if not fr_kw:
+            try:
+                from .darija import lexicon as lex_mod
+                lex_data = lex_mod._load()
+                for e in lex_data.values():
+                    if e.get("target") == intent:
+                        # Chercher un mot français dans les patterns
+                        for p in e.get("patterns", []):
+                            p_low = p.lower().strip()
+                            if p_low and p_low != slug and not any("\u0600" <= c <= "\u06FF" for c in p_low):
+                                fr_kw = p_low
+                                break
+                        break
+            except Exception:
+                pass
+
         from .database import search_products
 
         # 1) Cherche avec le mot français mappé
