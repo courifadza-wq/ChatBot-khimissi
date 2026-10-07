@@ -82,6 +82,13 @@ def _train() -> None:
         log.warning("Ré-entraînement partiel : %s", exc)
 
 
+def _train_async() -> None:
+    """Lance le ré-entraînement en arrière-plan (non bloquant)."""
+    t = threading.Thread(target=_train, daemon=True)
+    t.start()
+    log.info("📖 Ré-entraînement lancé en arrière-plan")
+
+
 def _stats() -> dict:
     """Résumé du classifieur compatible avec notre nlp.py."""
     n_pats = len(classifier._patterns)
@@ -358,7 +365,7 @@ def add(word: str, word_ar: str = "", mode: str = "produit", target: str = "",
         _save(data)
         added = _inject(entry)
         if retrain:
-            _train()
+            _train_async()
         log.info("📖 Lexique : « %s » -> %s (%d formulations, +%d nouvelles)",
                  word_l or word_a, target, len(pats), added)
         after = _predict(word_a or word_l)
@@ -385,7 +392,7 @@ def delete(eid: str, retrain: bool = True) -> dict:
         reload_classifier()
         apply_all()
         if retrain:
-            _train()
+            _train_async()
         log.info("📖 Lexique : suppression de « %s »", removed.get("word") or eid)
         return {"ok": True, "supprime": eid, "entrees": len(data),
                 "modele": _stats()}
