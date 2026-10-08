@@ -1,69 +1,49 @@
-# 🏗️ ROADMAP — Chatbot Framework Multi-Tenant SaaS
+# 🏗️ ROADMAP — Framework Chatbot White-Label
 
-> Transformer le bot Planète Kids en framework réutilisable pour tous vos futurs clients
+> Un framework/template de bot qui se duplique et se personnalise pour chaque client selon son activité
 
 ---
 
-## 📍 État actuel vs Cible
+## 📍 Concept : 1 client = 1 bot indépendant
 
 ```mermaid
-flowchart LR
-    A["🟡 ACTUEL\nBot mono-client\nPlanète Kids\n1 VPS / 1 container"] --> B["🟢 CIBLE\nFramework SaaS\nMulti-tenant\nN clients / 1 plateforme"]
+flowchart TD
+    FW["🧰 FRAMEWORK\n(Template de base)"]
+    FW -->|"Config e-commerce"| BOT1["🤖 Bot Planète Kids\nVêtements enfant\nVPS Client 1"]
+    FW -->|"Config restaurant"| BOT2["🤖 Bot Le Dauphin\nMenu & réservation\nVPS Client 2"]
+    FW -->|"Config pharmacie"| BOT3["🤖 Bot Pharmacie El Amel\nMédicaments & conseil\nVPS Client 3"]
+    FW -->|"Config services"| BOT4["🤖 Bot Plombier Pro\nDevis & RDV\nVPS Client 4"]
 ```
 
-| Dimension | Actuel (mono-client) | Cible (framework SaaS) |
-|---|---|---|
-| **Clients** | 1 (Planète Kids) | N clients, chacun avec son bot |
-| **Déploiement** | 1 VPS + 1 container Docker | 1 plateforme, N tenants isolés |
-| **Admin** | Token hardcodé | Dashboard multi-client avec auth |
-| **NLP** | 1 intents.yaml partagé | Base commune + intents par client |
-| **Catalogue** | 1 SQLite par client | PostgreSQL multi-tenant |
-| **Widget** | PHP proxy sur Hostinger | Widget JS universel (CDN) |
-| **Facturation** | Aucune | Abonnements + quotas |
+**Principe :** Chaque bot est **totalement indépendant** — son propre serveur, sa propre base de données, son propre NLP, adapté à son métier.
 
 ---
 
 ## 🧅 Les 7 Couches du Framework
 
-```mermaid
-flowchart TD
-    L1["🎨 Couche 1 — DESIGN\nWidget • Admin Dashboard • Branding"]
-    L2["🌐 Couche 2 — FRONTEND\nWidget JS • Dashboard Vue/React • Embed"]
-    L3["⚙️ Couche 3 — BACKEND API\nFastAPI • Multi-tenant • REST/WebSocket"]
-    L4["🧠 Couche 4 — NLP / IA\nClassification • Normalisation • LLM"]
-    L5["💾 Couche 5 — DATA\nPostgreSQL • Redis • S3"]
-    L6["🚀 Couche 6 — INFRASTRUCTURE\nDocker • Kubernetes • CI/CD"]
-    L7["🔒 Couche 7 — SÉCURITÉ\nAuth • Isolation • RGPD"]
-    L1 --> L2 --> L3 --> L4 --> L5 --> L6 --> L7
-```
-
 ---
 
 ## 🎨 Couche 1 — DESIGN (UI/UX)
 
-### État actuel
-- Widget chat basique (HTML inline dans `page.html`)
-- Admin lexique : page HTML simple
-- Pas de dashboard client
-- Branding hardcodé "Planète Kids"
+### Widget Chat personnalisable
+- Couleurs, logo, position, messages d'accueil **par client**
+- Thèmes prédéfinis par secteur d'activité
+- Responsive mobile / desktop
 
-### Cible
-- Widget **personnalisable** (couleurs, logo, position, messages d'accueil)
-- **Dashboard admin** complet par client
-- **Super-admin** pour vous (gérer tous les clients)
-- Branding **dynamique** par tenant
+### Dashboard Admin par bot
+- Chaque client accède à **son propre** dashboard
+- Gère son catalogue, conversations, stats, lexique
 
 ### Composants à designer
 
 | Composant | Description | Priorité |
 |---|---|---|
-| **Widget Chat** | Bulle + fenêtre de chat embeddable sur n'importe quel site | 🔴 P0 |
-| **Dashboard Client** | Gestion catalogue, lexique, conversations, stats | 🔴 P0 |
-| **Super-Admin** | Créer/gérer les tenants, quotas, facturation | 🟡 P1 |
-| **Onboarding Wizard** | Configurer un nouveau client en 5 étapes | 🟡 P1 |
+| **Widget Chat** | Bulle + fenêtre embeddable, thème selon activité | 🔴 P0 |
+| **Dashboard Client** | Gestion catalogue, conversations, stats | 🔴 P0 |
+| **Wizard de Config** | Configurer un nouveau bot en 5 étapes | 🟡 P1 |
 | **Page Marketing** | Landing page pour vendre le service | 🟢 P2 |
 
-### Outils de design
+### Outils
 - **Figma** — Maquettes UI/UX
 - **Shadcn/ui** — Composants réutilisables
 - **Tailwind CSS v4** — Design system
@@ -72,51 +52,49 @@ flowchart TD
 
 ## 🌐 Couche 2 — FRONTEND
 
-### Architecture cible
+### Architecture
 
 ```
-frontend/
-├── widget/              # Widget chat embeddable (vanilla JS)
-│   ├── widget.js        # Script universel <script src="...">
-│   ├── widget.css       # Styles isolés (shadow DOM)
-│   └── config.js        # Personnalisation par tenant
-├── dashboard/           # Dashboard admin (Vue 3 / React)
+framework/
+├── widget/                  # Widget chat (vanilla JS)
+│   ├── widget.js            # Script universel
+│   ├── widget.css           # Styles isolés (shadow DOM)
+│   └── themes/              # Thèmes par secteur
+│       ├── ecommerce.css
+│       ├── restaurant.css
+│       ├── pharmacy.css
+│       └── services.css
+├── dashboard/               # Dashboard admin (Vue 3)
 │   ├── pages/
 │   │   ├── Login.vue
-│   │   ├── Dashboard.vue       # KPI + stats
-│   │   ├── Conversations.vue   # Journal en temps réel
-│   │   ├── Catalogue.vue       # CRUD produits
-│   │   ├── Lexique.vue         # Gestion NLP darija
-│   │   ├── Settings.vue        # Config bot + branding
-│   │   └── Analytics.vue       # Graphiques + export
+│   │   ├── Dashboard.vue    # KPI + stats
+│   │   ├── Conversations.vue
+│   │   ├── Catalogue.vue    # CRUD produits/services
+│   │   ├── Lexique.vue      # Gestion NLP darija
+│   │   ├── Settings.vue     # Config bot + branding
+│   │   └── Analytics.vue
 │   └── components/
-│       ├── ChatPreview.vue     # Aperçu widget en live
-│       └── StatsCards.vue
-└── superadmin/          # Panel super-admin
-    ├── Tenants.vue      # Liste clients
-    ├── Billing.vue      # Facturation
-    └── System.vue       # Monitoring
+│       └── ChatPreview.vue  # Aperçu widget en live
 ```
 
 ### Stack Frontend
 
 | Technologie | Rôle | Pourquoi |
 |---|---|---|
-| **Vue 3 + Vite** | Dashboard admin | Vous avez déjà le frontend-vue de Darlila |
+| **Vue 3 + Vite** | Dashboard admin | Déjà maîtrisé (Darlila) |
 | **Vanilla JS** | Widget chat | Zéro dépendance, embed universel |
-| **Tailwind CSS v4** | Styling | Rapide, responsive, design system |
-| **Pinia** | State management | Store réactif pour Vue 3 |
-| **Chart.js** | Graphiques analytics | Léger, joli, interactif |
-| **Socket.IO client** | Chat temps réel | WebSocket pour conversations live |
+| **Tailwind CSS v4** | Styling | Rapide, responsive |
+| **Pinia** | State management | Store réactif Vue 3 |
+| **Chart.js** | Graphiques analytics | Léger, interactif |
 
-### Widget universel (embed)
+### Widget embed
 ```html
 <!-- Le client colle ça sur son site -->
-<script
-  src="https://bot.br-solution.tech/widget.js"
-  data-tenant="planet-kids"
+<script src="https://cdn.br-solution.tech/widget.js"
+  data-bot-url="https://bot-planetekids.br-solution.tech"
   data-color="#FF6B35"
-  data-position="bottom-right">
+  data-name="Planète Kids"
+  data-welcome="Bienvenue ! Comment puis-je vous aider ?">
 </script>
 ```
 
@@ -124,198 +102,195 @@ frontend/
 
 ## ⚙️ Couche 3 — BACKEND API
 
-### Architecture cible
+### Architecture template (dupliqué par client)
 
 ```
-app/
-├── core/                    # Noyau framework
-│   ├── config.py            # Settings multi-tenant
-│   ├── database.py          # PostgreSQL + connexion pool
-│   ├── auth.py              # JWT + API keys
-│   ├── middleware.py        # Tenant detection middleware
-│   └── exceptions.py       # Error handlers
-├── tenants/                 # Gestion multi-tenant
-│   ├── models.py            # Tenant, Plan, Quota
-│   ├── router.py            # CRUD tenants (super-admin)
-│   └── service.py           # Logique métier
-├── chat/                    # Moteur de chat
-│   ├── web_chat.py          # Chat web (existant, adapté)
-│   ├── whatsapp.py          # WhatsApp handler
-│   ├── instagram.py         # 🔮 Futur : Instagram DM
-│   ├── messenger.py         # 🔮 Futur : Facebook Messenger
-│   └── router.py            # Routes /chat/*
-├── nlp/                     # Intelligence NLP
-│   ├── classifier.py        # Classifieur ML (existant)
-│   ├── normalizer.py        # Normalisation darija (existant)
-│   ├── lexicon.py           # Lexique admin (existant)
-│   └── router.py            # API /nlp/*
-├── catalog/                 # Catalogue produits
-│   ├── models.py            # Product, Category, Price
-│   ├── search.py            # Recherche intelligente
-│   ├── import_export.py     # Import Excel/CSV
-│   └── router.py            # API /catalog/*
-├── orders/                  # Commandes
-│   ├── models.py            # Order, OrderItem
-│   ├── flow.py              # Machine à états commande
-│   └── router.py            # API /orders/*
-├── analytics/               # Statistiques
-│   ├── models.py            # ConversationLog, Metric
-│   ├── aggregator.py        # Calculs KPI
-│   └── router.py            # API /analytics/*
-├── integrations/            # Intégrations externes
-│   ├── whatsapp_api.py      # Meta Business API
-│   ├── payment.py           # BaridiMob, CCP, Stripe
-│   └── delivery.py          # Yalidine, ZR Express
-└── main.py                  # FastAPI app factory
+bot-template/
+├── app/
+│   ├── core/
+│   │   ├── config.py            # ⚙️ Config du bot (nom, secteur, horaires)
+│   │   ├── database.py          # Base de données
+│   │   └── auth.py              # Auth admin (JWT)
+│   ├── chat/
+│   │   ├── web_chat.py          # Moteur chat web
+│   │   ├── whatsapp.py          # WhatsApp handler
+│   │   ├── flows/               # 🔑 Flows conversationnels par ACTIVITÉ
+│   │   │   ├── ecommerce.py     # Commande, panier, livraison
+│   │   │   ├── restaurant.py    # Menu, réservation, livraison repas
+│   │   │   ├── pharmacy.py      # Conseil santé, disponibilité médicament
+│   │   │   ├── services.py      # Devis, prise de RDV
+│   │   │   └── base.py          # Flow commun (salutations, horaires, contact)
+│   │   └── router.py
+│   ├── nlp/
+│   │   ├── classifier.py        # Classifieur ML
+│   │   ├── normalizer.py        # Normalisation darija
+│   │   └── lexicon.py           # Lexique admin
+│   ├── catalog/
+│   │   ├── search.py            # Recherche intelligente
+│   │   └── import_export.py     # Import Excel/CSV
+│   ├── orders/                  # Module commande (e-commerce / resto)
+│   ├── booking/                 # Module RDV (services / médical)
+│   └── main.py                  # FastAPI app
+├── data/
+│   ├── intents/                 # 🔑 Intents par ACTIVITÉ
+│   │   ├── base.yaml            # Intents communs (greeting, hours, etc.)
+│   │   ├── ecommerce.yaml       # Intents e-commerce (commande, livraison)
+│   │   ├── restaurant.yaml      # Intents resto (menu, réservation)
+│   │   ├── pharmacy.yaml        # Intents pharmacie
+│   │   └── services.yaml        # Intents services (devis, RDV)
+│   ├── darija/                  # 🔑 Lexique darija par DOMAINE
+│   │   ├── darija_variants.json # Dictionnaire orthographe (commun)
+│   │   ├── ecommerce.csv        # Mots darija e-commerce
+│   │   ├── food.csv             # Mots darija alimentation/resto
+│   │   ├── health.csv           # Mots darija santé/pharmacie
+│   │   └── general.csv          # Mots darija généraux
+│   ├── responses.yaml           # Réponses personnalisées du client
+│   └── bot.yaml                 # 🔑 CONFIG PRINCIPALE DU BOT
+├── Dockerfile
+├── docker-compose.yml
+└── setup.sh                     # Script de déploiement automatique
+```
+
+### Fichier `bot.yaml` — Le cœur de la personnalisation
+
+```yaml
+# Chaque bot a sa propre config
+bot:
+  name: "Planète Kids"
+  sector: "ecommerce"          # ecommerce | restaurant | pharmacy | services
+  language: ["fr", "darija"]
+  timezone: "Africa/Algiers"
+
+business:
+  phone: "+213 555 123 456"
+  address: "Rue Didouche Mourad, Alger"
+  hours:
+    mon-sat: "09:00-19:00"
+    sun: "fermé"
+  delivery:
+    zones: ["Alger", "Blida", "Tipaza"]
+    companies: ["Yalidine", "ZR Express"]
+  payment: ["CCP", "BaridiMob", "Edahabia", "espèces"]
+
+widget:
+  color: "#FF6B35"
+  position: "bottom-right"
+  welcome: "Bienvenue chez Planète Kids ! 👋"
+  logo: "/assets/logo.png"
+
+nlp:
+  intents_files:
+    - "data/intents/base.yaml"
+    - "data/intents/ecommerce.yaml"
+  darija_files:
+    - "data/darija/general.csv"
+    - "data/darija/ecommerce.csv"
+  flow: "ecommerce"             # Quel flow conversationnel utiliser
 ```
 
 ### Stack Backend
 
 | Technologie | Rôle | Pourquoi |
 |---|---|---|
-| **FastAPI** | Framework API | Déjà utilisé, rapide, async, auto-docs |
-| **Uvicorn + Gunicorn** | Serveur | Multi-workers (plus de single worker) |
-| **SQLAlchemy 2.0** | ORM | Async, type-safe, migrations |
-| **Alembic** | Migrations DB | Versioning de schéma |
-| **Pydantic v2** | Validation | Déjà utilisé, schemas API |
-| **python-jose** | JWT Auth | Tokens sécurisés |
-| **Celery + Redis** | Tâches async | Ré-entraînement NLP, imports, emails |
-| **WebSocket** | Chat temps réel | Conversations live dans dashboard |
-
-### Middleware Multi-Tenant
-```python
-# Chaque requête identifie le tenant automatiquement
-@app.middleware("http")
-async def tenant_middleware(request, call_next):
-    tenant_id = request.headers.get("X-Tenant-ID")
-    # ou depuis le sous-domaine: planet-kids.bot.br-solution.tech
-    # ou depuis l'API key
-    request.state.tenant = await get_tenant(tenant_id)
-    return await call_next(request)
-```
+| **FastAPI** | Framework API | Rapide, async, auto-docs |
+| **Uvicorn + Gunicorn** | Serveur multi-workers | Performance |
+| **SQLAlchemy 2.0** | ORM | Async, migrations |
+| **Alembic** | Migrations DB | Versioning schéma |
+| **Pydantic v2** | Validation | Schemas API |
+| **python-jose** | JWT Auth | Tokens admin |
+| **Celery + Redis** | Tâches async | Ré-entraînement NLP, imports |
 
 ---
 
 ## 🧠 Couche 4 — NLP / Intelligence Artificielle
 
-### Architecture cible
+### Architecture NLP modulaire
 
+```mermaid
+flowchart TD
+    MSG["Message utilisateur"] --> NORM["Normalisation darija\n(19K variantes — commun)"]
+    NORM --> ML["Classifieur ML\n(intents base + intents secteur)"]
+    ML -->|"Confiance > 70%"| FLOW["Flow conversationnel\n(selon secteur)"]
+    ML -->|"Confiance < 70%"| LLM["🤖 LLM Fallback\n(Gemini API)"]
+    LLM --> FLOW
+    FLOW -->|"e-commerce"| EC["Commande\nPanier\nLivraison"]
+    FLOW -->|"restaurant"| RE["Menu\nRéservation\nLivraison repas"]
+    FLOW -->|"pharmacie"| PH["Disponibilité\nConseil\nOrdonnance"]
+    FLOW -->|"services"| SV["Devis\nPrise de RDV\nSuivi"]
 ```
-nlp/
-├── base/                    # Modèle de base partagé
-│   ├── intents_base.yaml    # Intents communs (greeting, payment, delivery...)
-│   ├── darija_variants.json # Dictionnaire orthographe (partagé)
-│   └── normalizer.py       # Normalisation (partagé)
-├── tenants/                 # Données NLP par client
-│   ├── {tenant_id}/
-│   │   ├── intents.yaml     # Intents spécifiques au client
-│   │   ├── lexicon.yaml     # Lexique darija du client
-│   │   ├── responses.yaml   # Réponses personnalisées
-│   │   └── model.joblib     # Modèle ML entraîné
-├── engine/
-│   ├── classifier.py        # TF-IDF + LogReg (existant)
-│   ├── intent_merger.py     # Fusionne base + tenant intents
-│   ├── trainer.py           # Entraînement async par tenant
-│   └── evaluator.py         # Précision / métriques NLP
-└── llm/                     # 🔮 Futur : LLM fallback
-    ├── gemini_adapter.py    # Google Gemini API
-    ├── prompt_templates.py  # Prompts par domaine
-    └── rag.py               # Retrieval Augmented Generation
-```
+
+### Intents par secteur d'activité
+
+| Secteur | Intents spécifiques | Exemples darija |
+|---|---|---|
+| **E-commerce** | commande, panier, livraison, taille, couleur, promo | "bghit nekmandi", "chhal taousil" |
+| **Restaurant** | menu, réservation, plat du jour, allergènes, livraison repas | "wach kayen pizza", "bghit table l 8" |
+| **Pharmacie** | disponibilité médicament, conseil, ordonnance, garde | "wach kayen doliprane", "pharmacie de garde" |
+| **Services** | devis, RDV, tarif, zone d'intervention, urgence | "bghit devis", "tekdrou tjiw l Blida?" |
 
 ### Stack NLP / IA
 
 | Technologie | Rôle | Pourquoi |
 |---|---|---|
-| **scikit-learn** | Classification ML | Déjà utilisé, léger, efficace pour 25K patterns |
-| **TF-IDF + LogReg** | Vectorisation + classification | Rapide, pas besoin de GPU |
-| **joblib** | Sérialisation modèle | Sauvegarder/charger modèles entraînés |
-| **Google Gemini API** | LLM fallback intelligent | Quand le ML classique ne trouve pas |
-| **LangChain** | Orchestration LLM | RAG, chaînes, mémoire conversationnelle |
-| **FAISS** | Recherche vectorielle | Recherche sémantique dans le catalogue |
-| **spaCy** | NLP avancé (futur) | NER, POS tagging, lemmatisation |
-
-### Stratégie NLP à 3 niveaux
-
-```mermaid
-flowchart TD
-    MSG["Message utilisateur"] --> NORM["Normalisation darija\n(19K variantes)"]
-    NORM --> ML["Classifieur ML\n(TF-IDF + LogReg)"]
-    ML -->|"Confiance > 70%"| OK["✅ Intent trouvé"]
-    ML -->|"Confiance < 70%"| LEX["Recherche Lexique\n+ Keywords"]
-    LEX -->|"Trouvé"| OK
-    LEX -->|"Pas trouvé"| LLM["🤖 LLM Fallback\n(Gemini API)"]
-    LLM --> OK
-```
+| **scikit-learn** | Classification ML | Léger, efficace, pas de GPU |
+| **TF-IDF + LogReg** | Vectorisation + classification | Rapide |
+| **joblib** | Sérialisation modèle | Sauvegarder modèles entraînés |
+| **Google Gemini API** | LLM fallback intelligent | Quand le ML ne trouve pas |
+| **FAISS** | Recherche vectorielle | Recherche sémantique catalogue |
+| **spaCy** | NLP avancé (futur) | NER, extraction d'entités |
 
 ---
 
 ## 💾 Couche 5 — DATA
 
-### Migration SQLite → PostgreSQL
+### Base de données (1 DB par bot)
 
-| Actuel (SQLite) | Cible (PostgreSQL) | Pourquoi |
-|---|---|---|
-| 1 fichier `orders.db` | PostgreSQL multi-tenant | Concurrent, fiable, scalable |
-| Pas de migrations | Alembic migrations | Versioning de schéma |
-| Pas d'isolation | Schema par tenant ou `tenant_id` | Isolation des données |
-| Pas de cache | Redis cache | Sessions, quotas, rate limiting |
-| Images en URL | S3/MinIO | Stockage fichiers scalable |
+Chaque bot a **sa propre base** — aucun partage de données entre clients.
 
-### Schéma base de données
+| Actuel (Phase 1) | Cible (Phase 2) |
+|---|---|
+| SQLite (simple, 1 fichier) | PostgreSQL (robuste, concurrent) |
+| OK pour démarrer | Nécessaire quand le bot a du trafic |
+
+### Schéma commun (adapté par secteur)
 
 ```mermaid
 erDiagram
-    TENANT ||--o{ USER : has
-    TENANT ||--o{ PRODUCT : has
-    TENANT ||--o{ CATEGORY : has
-    TENANT ||--o{ ORDER : has
-    TENANT ||--o{ CONVERSATION : has
-    TENANT ||--o{ LEXICON_ENTRY : has
-    TENANT {
-        uuid id PK
+    BOT_CONFIG {
         string name
-        string slug
-        string domain
-        string plan
-        json config
+        string sector
+        json settings
         json branding
-        datetime created_at
-    }
-    USER {
-        uuid id PK
-        uuid tenant_id FK
-        string email
-        string role
-        string password_hash
     }
     PRODUCT {
-        uuid id PK
-        uuid tenant_id FK
-        uuid category_id FK
+        int id PK
         string name
         string reference
         decimal price
         int stock
+        string category
         string image_url
     }
-    CATEGORY {
-        uuid id PK
-        uuid tenant_id FK
-        string name
-        string slug
-    }
     ORDER {
-        uuid id PK
-        uuid tenant_id FK
+        int id PK
         string client_phone
+        string client_name
         string status
         decimal total
         json items
+        string delivery_mode
+    }
+    BOOKING {
+        int id PK
+        string client_phone
+        string client_name
+        datetime date_time
+        int guests
+        string status
+        string notes
     }
     CONVERSATION {
-        uuid id PK
-        uuid tenant_id FK
+        int id PK
         string session_id
         string channel
         text user_msg
@@ -325,104 +300,87 @@ erDiagram
         datetime created_at
     }
     LEXICON_ENTRY {
-        uuid id PK
-        uuid tenant_id FK
+        int id PK
         string word
         string word_ar
         string target
         json patterns
     }
+    BOT_CONFIG ||--o{ PRODUCT : "e-commerce/pharma"
+    BOT_CONFIG ||--o{ ORDER : "e-commerce/resto"
+    BOT_CONFIG ||--o{ BOOKING : "resto/services"
+    BOT_CONFIG ||--o{ CONVERSATION : logs
+    BOT_CONFIG ||--o{ LEXICON_ENTRY : nlp
 ```
 
 ### Stack Data
 
-| Technologie | Rôle | Pourquoi |
-|---|---|---|
-| **PostgreSQL 16** | Base principale | ACID, JSON, full-text search, fiable |
-| **Redis 7** | Cache + sessions + queues | Rate limiting, sessions chat, pub/sub |
-| **MinIO / S3** | Stockage fichiers | Images produits, exports Excel |
-| **Alembic** | Migrations | Versioning schéma DB |
-| **pgvector** | Vecteurs (futur) | Recherche sémantique avec embeddings |
+| Technologie | Rôle |
+|---|---|
+| **SQLite** | Phase 1 — simple, 1 fichier, facile à déployer |
+| **PostgreSQL 16** | Phase 2 — quand le bot a du trafic |
+| **Redis 7** | Cache, sessions chat, rate limiting |
+| **MinIO / S3** | Stockage images produits |
 
 ---
 
 ## 🚀 Couche 6 — INFRASTRUCTURE
 
-### Architecture de déploiement
+### Déploiement : 1 bot = 1 container Docker
 
 ```mermaid
 flowchart TD
-    CLIENT["🌐 Client Browser"] --> CDN["Cloudflare CDN\nWidget JS + Dashboard"]
-    CDN --> LB["Load Balancer\nTraefik / Nginx"]
-    LB --> API1["API Server 1\nFastAPI + Gunicorn"]
-    LB --> API2["API Server 2\nFastAPI + Gunicorn"]
-    API1 --> PG["PostgreSQL\n(Primary)"]
-    API2 --> PG
-    API1 --> REDIS["Redis\nCache + Queue"]
-    API2 --> REDIS
-    REDIS --> WORKER["Celery Workers\nNLP Training\nImport/Export"]
-    WORKER --> PG
-    PG --> REPLICA["PostgreSQL\n(Replica - Read)"]
+    subgraph "VPS Client 1"
+        T1["Traefik"] --> B1["Bot Planète Kids\n:8001"]
+    end
+    subgraph "VPS Client 2"
+        T2["Traefik"] --> B2["Bot Le Dauphin\n:8001"]
+    end
+    subgraph "VPS Partagé (petits clients)"
+        T3["Traefik"]
+        T3 --> B3["Bot Pharmacie\n:8001"]
+        T3 --> B4["Bot Plombier\n:8002"]
+        T3 --> B5["Bot Coiffeur\n:8003"]
+    end
+```
+
+> **Flexibilité :** un gros client = son propre VPS. Plusieurs petits clients = VPS partagé avec des containers isolés.
+
+### Script de déploiement automatique
+
+```bash
+# setup.sh — Déployer un nouveau bot en 3 commandes
+./setup.sh init "Bot Le Dauphin" restaurant
+./setup.sh import-catalog menu.xlsx
+./setup.sh deploy bot-ledauphin.br-solution.tech
 ```
 
 ### Stack Infrastructure
 
-| Technologie | Rôle | Pourquoi |
-|---|---|---|
-| **Docker** | Containerisation | Déjà utilisé, reproductible |
-| **Docker Compose** | Orchestration locale | Dev + staging |
-| **Coolify / Kubernetes** | Orchestration production | Auto-scaling, self-healing |
-| **Traefik** | Reverse proxy + SSL | Déjà utilisé, routing dynamique |
-| **GitHub Actions** | CI/CD | Build + test + deploy automatique |
-| **Cloudflare** | CDN + DNS + WAF | Performance + sécurité |
-| **Let's Encrypt** | SSL | Certificats gratuits auto-renouvelés |
-| **Sentry** | Error tracking | Monitoring erreurs en production |
-| **Prometheus + Grafana** | Monitoring | Métriques système + business |
-
-### Docker Compose Production
-```yaml
-services:
-  api:
-    build: .
-    command: gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker
-    deploy:
-      replicas: 2
-    depends_on: [postgres, redis]
-
-  worker:
-    build: .
-    command: celery -A app.tasks worker --loglevel=info
-    depends_on: [postgres, redis]
-
-  postgres:
-    image: postgres:16-alpine
-    volumes: [pgdata:/var/lib/postgresql/data]
-
-  redis:
-    image: redis:7-alpine
-
-  traefik:
-    image: traefik:v3.0
-    ports: ["80:80", "443:443"]
-```
+| Technologie | Rôle |
+|---|---|
+| **Docker** | Containerisation (1 container par bot) |
+| **Docker Compose** | Orchestration locale + petits déploiements |
+| **Coolify** | Déploiement via git push (déjà maîtrisé) |
+| **Traefik** | Reverse proxy + SSL auto |
+| **GitHub Actions** | CI/CD — build + test + deploy |
+| **Cloudflare** | CDN + DNS + WAF |
+| **Let's Encrypt** | Certificats SSL gratuits |
+| **Sentry** | Monitoring erreurs |
 
 ---
 
 ## 🔒 Couche 7 — SÉCURITÉ
 
-### Modèle de sécurité
-
-| Composant | Mécanisme | Détail |
-|---|---|---|
-| **Auth Dashboard** | JWT + Refresh tokens | Login email/password, tokens expirables |
-| **Auth API** | API Key par tenant | Header `X-API-Key` pour le widget |
-| **Auth Super-Admin** | JWT + 2FA (TOTP) | Double authentification |
-| **Isolation données** | `tenant_id` sur chaque table | Un client ne voit JAMAIS les données d'un autre |
-| **Rate limiting** | Redis + middleware | 60 req/min par IP, 1000/jour par tenant |
-| **RGPD** | Anonymisation + export + suppression | Droit à l'oubli, export données |
-| **Chiffrement** | TLS 1.3 + bcrypt passwords | En transit + au repos |
-| **CORS** | Whitelist par tenant | Chaque client autorise son domaine |
-| **Input sanitization** | Pydantic + bleach | Prévention XSS/injection |
+| Composant | Mécanisme |
+|---|---|
+| **Auth Dashboard** | JWT + mot de passe hashé (bcrypt) |
+| **Isolation** | Chaque bot = sa propre DB + son propre container |
+| **Rate limiting** | 60 req/min par IP |
+| **CORS** | Whitelist du domaine du client uniquement |
+| **SSL** | TLS 1.3 via Let's Encrypt |
+| **Input sanitization** | Pydantic validation + bleach |
+| **Données** | Aucun partage entre bots — isolation totale |
 
 ### Stack Sécurité
 
@@ -430,120 +388,132 @@ services:
 |---|---|
 | **python-jose** | JWT tokens |
 | **passlib + bcrypt** | Hash mots de passe |
-| **pyotp** | 2FA TOTP |
-| **slowapi** | Rate limiting FastAPI |
+| **slowapi** | Rate limiting |
 | **bleach** | Sanitisation HTML |
 
 ---
 
-## 📅 ROADMAP — 6 Étapes (pas à pas)
+## 📅 ROADMAP — 6 Étapes pas à pas
 
-### Étape 1 — Multi-Tenant Core (2-3 semaines)
-> Transformer le mono-client en multi-tenant
+### Étape 1 — Template de base (2 semaines)
+> Extraire un template réutilisable du bot Planète Kids
 
 ```
-□ Migrer SQLite → PostgreSQL (Alembic)
-□ Ajouter table tenants + tenant_id partout
-□ Middleware tenant detection
-□ Config par tenant (branding, messages, horaires)
-□ API Key auth pour chaque tenant
-□ Séparer intents_base.yaml + intents par tenant
-□ Gunicorn multi-workers (fini le single worker)
+□ Créer le fichier bot.yaml (config centralisée)
+□ Séparer intents en base.yaml + ecommerce.yaml
+□ Créer le système de flows (base.py + ecommerce.py)
+□ Externaliser toutes les réponses dans responses.yaml
+□ Rendre le branding dynamique (nom, couleurs, messages)
+□ Script setup.sh pour initialiser un nouveau bot
+□ Gunicorn multi-workers
+□ Documenter le processus de duplication
 ```
 
-**Résultat :** Le même code sert N clients avec leurs données isolées.
+**Résultat :** Dupliquer un bot pour un nouveau client e-commerce en 30 minutes.
 
 ---
 
-### Étape 2 — Dashboard Admin Client (2-3 semaines)
+### Étape 2 — Dashboard Admin (2-3 semaines)
 > Chaque client gère son bot via une interface web
 
 ```
 □ Vue 3 + Vite + Tailwind dashboard
-□ Login JWT avec rôles (admin, viewer)
-□ Page Catalogue (import Excel + CRUD produits)
+□ Login JWT (1 admin par bot)
+□ Page Catalogue (import Excel + CRUD)
 □ Page Lexique (ajouter/modifier mots darija)
-□ Page Conversations (journal en temps réel)
+□ Page Conversations (journal temps réel)
 □ Page Stats (graphiques messages/jour, top intents)
 □ Page Settings (branding, messages, horaires)
 □ Preview widget en live
 ```
 
-**Résultat :** Le client est autonome, il gère tout sans vous appeler.
+**Résultat :** Le client est autonome pour gérer son bot.
 
 ---
 
-### Étape 3 — Widget Chat Universel (1-2 semaines)
-> Un script JS que le client colle sur son site
+### Étape 3 — Widget Universel (1-2 semaines)
+> Un script JS personnalisable que le client colle sur son site
 
 ```
 □ Widget vanilla JS (shadow DOM, 0 dépendance)
-□ Personnalisation dynamique (couleur, logo, position, langue)
+□ Personnalisation par data-attributes (couleur, logo, position)
+□ Thèmes par secteur (e-commerce, resto, pharmacie)
 □ Responsive mobile/desktop
 □ Indicateur "en ligne" + "typing..."
 □ Historique conversation (localStorage)
-□ Bouton WhatsApp intégré
-□ CDN Cloudflare pour le script
+□ CDN Cloudflare
 ```
 
-**Résultat :** `<script src="..." data-tenant="xxx">` et ça marche.
+**Résultat :** `<script src="..." data-bot-url="...">` et ça marche sur n'importe quel site.
 
 ---
 
-### Étape 4 — Super-Admin + Onboarding (1-2 semaines)
-> Votre panel pour gérer tous les clients
+### Étape 4 — Flows par activité (3-4 semaines)
+> Adapter le bot à chaque métier
 
 ```
-□ Panel super-admin (Vue 3)
-□ CRUD tenants (créer, suspendre, supprimer)
-□ Wizard onboarding en 5 étapes :
-    1. Nom du magasin + domaine
-    2. Upload catalogue Excel
-    3. Personnalisation widget (couleurs, logo)
-    4. Génération API Key
-    5. Code embed à copier
-□ Quotas par plan (messages/mois, produits max)
-□ Monitoring santé de chaque bot
+□ Flow RESTAURANT :
+    - Afficher le menu du jour
+    - Réservation de table (date, heure, nombre)
+    - Commande livraison repas
+    - Allergènes et ingrédients
+    - Intents darija spécifiques ("wach kayen pizza", "table l 8")
+    - Lexique darija alimentaire
+
+□ Flow PHARMACIE :
+    - Recherche médicament par nom
+    - Disponibilité en stock
+    - Conseil santé basique
+    - Pharmacie de garde
+    - Intents darija santé ("wach kayen doliprane")
+    - Lexique darija médical
+
+□ Flow SERVICES (plombier, électricien, coiffeur...) :
+    - Demande de devis
+    - Prise de RDV (calendrier)
+    - Zone d'intervention
+    - Tarification
+    - Intents darija services ("bghit devis", "tekdrou tjiw?")
 ```
 
-**Résultat :** Créer un nouveau client en 5 minutes.
+**Résultat :** Le framework couvre les 4 secteurs principaux en Algérie.
 
 ---
 
-### Étape 5 — LLM Fallback + Intelligence (2-3 semaines)
+### Étape 5 — LLM Intelligence (2-3 semaines)
 > Quand le ML classique ne comprend pas → Gemini prend le relais
 
 ```
 □ Intégration Google Gemini API
-□ Prompt templates par domaine (e-commerce, resto, pharmacie...)
-□ RAG avec catalogue produits (FAISS + embeddings)
-□ Apprentissage continu (conversations non-résolues → suggestions)
+□ Prompt templates par secteur :
+    - E-commerce : "Tu es un vendeur de {nom_magasin}..."
+    - Restaurant : "Tu es l'assistant du restaurant {nom}..."
+    - Pharmacie : "Tu es l'assistant de la pharmacie {nom}..."
+□ RAG avec catalogue (FAISS + embeddings)
+□ Apprentissage : conversations non-résolues → suggestions
 □ Analyse de sentiment
-□ Résumé automatique des conversations
-□ Suggestions de réponses pour l'humain (handover)
 ```
 
-**Résultat :** Le bot répond intelligemment à tout, même les questions imprévues.
+**Résultat :** Le bot répond intelligemment à toute question, même imprévue.
 
 ---
 
-### Étape 6 — Monétisation + Scale (2-3 semaines)
-> Transformer en business rentable
+### Étape 6 — Automatisation + Scale (2-3 semaines)
+> Déployer un nouveau bot en 5 minutes
 
 ```
-□ Plans tarifaires (Free, Pro, Business)
-□ Système de facturation (Stripe ou CCP/BaridiMob)
-□ Limites par plan :
-    Free:     500 msg/mois, 100 produits
-    Pro:      5000 msg/mois, 1000 produits, widget custom
-    Business: illimité, WhatsApp, analytics, API
-□ Page marketing / landing page
-□ Documentation API (Swagger auto + guide d'intégration)
-□ Multi-canal : Instagram DM, Facebook Messenger
-□ Kubernetes pour auto-scaling
+□ CLI de déploiement :
+    $ botctl new "Le Dauphin" --sector restaurant --vps 187.x.x.x
+    $ botctl import-catalog menu.xlsx
+    $ botctl deploy
+□ Template Docker Compose par secteur
+□ Script d'import catalogue intelligent (détecte les colonnes)
+□ Monitoring centralisé (tous vos bots sur 1 dashboard)
+□ Alertes (bot down, erreurs NLP, messages non-résolus)
+□ Backup automatique des DB clients
 ```
 
-**Résultat :** Un SaaS qui génère des revenus récurrents.
+**Résultat :** Créer et déployer un bot pour un nouveau client en 5 minutes.
 
 ---
 
@@ -551,32 +521,46 @@ services:
 
 | Couche | Technologies |
 |---|---|
-| **Frontend Widget** | Vanilla JS, Shadow DOM, CSS Variables |
+| **Frontend Widget** | Vanilla JS, Shadow DOM, CSS Variables, thèmes par secteur |
 | **Frontend Dashboard** | Vue 3, Vite, Tailwind CSS v4, Pinia, Chart.js |
-| **Backend API** | FastAPI, Gunicorn, Uvicorn, Pydantic v2 |
-| **NLP / IA** | scikit-learn, TF-IDF, Google Gemini, LangChain, FAISS |
-| **Base de données** | PostgreSQL 16, SQLAlchemy 2.0, Alembic, Redis 7 |
+| **Backend API** | FastAPI, Gunicorn, Uvicorn, Pydantic v2, SQLAlchemy 2.0 |
+| **NLP / IA** | scikit-learn, TF-IDF, Google Gemini, FAISS |
+| **Base de données** | SQLite (démarrage) → PostgreSQL (scale), Redis |
 | **Tâches async** | Celery, Redis (broker) |
-| **Infrastructure** | Docker, Docker Compose, Coolify/K8s, Traefik, GitHub Actions |
-| **Monitoring** | Sentry, Prometheus, Grafana |
-| **Sécurité** | JWT, bcrypt, TOTP 2FA, slowapi, CORS |
+| **Infrastructure** | Docker, Docker Compose, Coolify, Traefik, GitHub Actions |
+| **Monitoring** | Sentry |
+| **Sécurité** | JWT, bcrypt, slowapi, CORS, TLS 1.3 |
 | **CDN / DNS** | Cloudflare |
-| **Stockage** | MinIO / S3 |
-| **Paiement** | Stripe, BaridiMob, CCP |
+| **Stockage** | MinIO / S3 (images) |
 
 ---
 
-## 🎯 Quick Wins (ce que vous pouvez vendre MAINTENANT)
+## 💰 Modèle commercial
 
-Même sans tout développer, vous pouvez déjà vendre le bot actuel à d'autres clients en :
+| Formule | Prix/mois | Inclus |
+|---|---|---|
+| **Starter** | 5 000 DZD | Widget web, 500 msg/mois, 100 produits |
+| **Pro** | 15 000 DZD | + WhatsApp, 5000 msg/mois, 1000 produits, dashboard |
+| **Business** | 30 000 DZD | + LLM Gemini, illimité, analytics, support prioritaire |
 
-1. **Dupliquant le VPS** pour chaque client (1 container par client)
-2. **Changeant** `responses.py` (nom du magasin, horaires, adresse)
-3. **Important** le catalogue Excel du client
-4. **Personnalisant** le widget (couleurs, logo)
-
-> 💡 C'est la méthode "artisanale" en attendant le framework automatisé.
+**Frais de setup :** 20 000 — 50 000 DZD (config initiale + import catalogue)
 
 ---
 
-*Roadmap v1.0 — 08/10/2026*
+## 🎯 Ce qui existe DÉJÀ dans le framework
+
+| Composant | Statut | Détail |
+|---|---|---|
+| Moteur NLP | ✅ Prêt | 157 intents, 25K patterns, normalisation 19K variantes |
+| Lexique darija | ✅ Prêt | CRUD admin, ré-entraînement async |
+| Recherche produits | ✅ Prêt | SQLite, fuzzy search, multi-critères |
+| Système commande | ✅ Prêt | Panier, calcul prix, livraison |
+| Journal conversations | ✅ Prêt | SQLite, stats, cleanup auto |
+| Widget web | ✅ Basique | Fonctionne, à améliorer (thèmes) |
+| WhatsApp | ✅ Prêt | Meta Business API |
+| Docker | ✅ Prêt | Dockerfile, Coolify deploy |
+| Darija NLP | ✅ Prêt | 4 langues (MSA, Derja, Arabizi, FR) |
+
+---
+
+*Roadmap v2.0 — 08/10/2026 — Architecture : 1 client = 1 bot indépendant*
