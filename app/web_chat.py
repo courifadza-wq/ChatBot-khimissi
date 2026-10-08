@@ -150,7 +150,9 @@ def get_bot_reply(session_id: str, text: str) -> str:
 
 
     # ── NLP ──────────────────────────────────────────────────────────
-    intent = classifier.predict(text)
+    from .darija.normalizer import normalize_darija
+    text_for_nlp = normalize_darija(text)          # corrige les fautes (seroual→serwal)
+    intent = classifier.predict(text_for_nlp)
 
     # ── Capturer la confiance NLP ────────────────────────────────────
     _nlp_conf = 0.0
