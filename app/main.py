@@ -460,6 +460,40 @@ async def webhook_receive(request: Request):
     # 3) Sinon réponse normale selon l'intention (avec profil client)
     response = reply_for(intent, message=text, client=client_profile, lang=lang)
     if response is None:
+        # ── Garde social : si message = salutation/remerciement/au-revoir,
+        #    on répond directement sans chercher de produit ─────────────
+        _GREETING_TOKENS = {
+            # Français
+            "bonjour", "bonsoir", "salut", "coucou", "hello", "hi", "hey",
+            "bonne journée", "bonne soirée",
+            # Darija / Arabe romanisé
+            "salem", "salm", "salam", "slm", "sl", "slt", "s3",
+            "s3likoum", "salam 3alaykom", "salam alaykoum",
+            "sabah", "sbah", "sbah khir", "sba7", "sba7 khir",
+            "msa", "msah", "msa khir", "msah khir", "msa7", "msa7 khir",
+            "merhba", "mrh7ba", "ahla", "ahlan", "ahlen",
+            "labas", "la bas", "la bès", "wach labas", "wach rak",
+            # Merci / au revoir (social sans produit)
+            "merci", "shukran", "barak allah", "yaaychek",
+            "bye", "bbye", "au revoir", "ciao", "ok merci", "merci bcp",
+        }
+        _txt_social = text.strip().lower()
+        _is_social = (
+            _txt_social in _GREETING_TOKENS
+            or any(_txt_social.startswith(tok + " ") or _txt_social == tok
+                   for tok in _GREETING_TOKENS)
+        )
+        if _is_social:
+            _social_intent = "greeting"
+            if _txt_social in {"merci", "shukran", "barak allah", "yaaychek", "ok merci", "merci bcp"}:
+                _social_intent = "thanks"
+            elif _txt_social in {"bye", "bbye", "au revoir", "ciao"}:
+                _social_intent = "goodbye"
+            response = reply_for(_social_intent, message=text, client=client_profile, lang=lang)
+            if response:
+                send_text_message(phone, response)
+                return {"status": "ok"}
+
         # ── Fallback intelligent : tenter une recherche produit ──────
         from .catalog import parse_search_query, format_search_results
         from .database import search_products, count_products
