@@ -92,6 +92,10 @@ details summary{cursor:pointer;color:var(--mut);font-size:12.5px;margin-top:6px}
       <div class="seg" id="segMode">
         <div class="on" data-m="produit" onclick="setMode('produit')">🛍️ un produit</div>
         <div data-m="intention" onclick="setMode('intention')">💬 une question</div>
+        <div data-m="social" onclick="setMode('social')">👋 salutation</div>
+      </div>
+      <div id="modeHint" style="font-size:12px;color:var(--mut);margin-top:6px;padding:7px 10px;background:#0e1620;border-radius:8px;border:1px solid var(--line)">
+        🛍️ <b>Produit</b> : le bot génère toutes les façons darija de demander ce produit (prix, dispo, commander…)
       </div>
 
       <label>À rattacher à <span class="muted" id="tgtCount"></span></label>
@@ -182,8 +186,30 @@ function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;
 function isAr(s){ return /[\u0600-\u06FF]/.test(s||''); }
 
 /* ---------- formulaire ---------- */
-function setMode(m){ MODE=m; document.querySelectorAll('#segMode div').forEach(d=>d.classList.toggle('on', d.dataset.m===m));
-  $('kindsBox').style.display = m==='produit' ? '' : 'none'; fillTargets(); autoPreview(); }
+const HINTS = {
+  produit: '🛍️ <b>Produit</b> : le bot génère toutes les façons darija de demander ce produit (prix, dispo, commander…)',
+  intention: '💬 <b>Question</b> : le bot reconnaîtra cette expression comme une question générale (livraison, horaires…)',
+  social: '👋 <b>Salutation</b> : salem, slm, merhba… Ces mots sont interceptés EN PRIORITÉ, jamais traités comme des produits.'
+};
+
+function setMode(m){
+  MODE=m;
+  document.querySelectorAll('#segMode div').forEach(d=>d.classList.toggle('on', d.dataset.m===m));
+  const isProd = m==='produit';
+  const isSocial = m==='social';
+  $('kindsBox').style.display = isProd ? '' : 'none';
+  $('segLvl').closest('div').style.display = isSocial ? 'none' : '';
+  $('modeHint').innerHTML = HINTS[m] || '';
+  // Mode social : auto-sélectionner greeting dans la liste des cibles
+  fillTargets();
+  if(isSocial){
+    const sel = $('target');
+    const opts = Array.from(sel.options);
+    const greet = opts.find(o=>o.value==='greeting');
+    if(greet) sel.value = 'greeting';
+  }
+  autoPreview();
+}
 function setLvl(l){ LVL=l; document.querySelectorAll('#segLvl div').forEach(d=>d.classList.toggle('on', +d.dataset.l===l)); autoPreview(); }
 
 function fillKinds(list){
@@ -194,6 +220,8 @@ function fillKinds(list){
 }
 function tgKind(k,el){ const i=KINDS.indexOf(k); if(i<0)KINDS.push(k); else KINDS.splice(i,1); el.classList.toggle('on'); autoPreview(); }
 
+const SOCIAL_INTENTS = new Set(['greeting','thanks','goodbye','affirm','deny','bot_challenge','help_menu']);
+
 function fillTargets(){
   const f = ($('tgtFilter').value||'').toLowerCase();
   const cur = $('target').value;
@@ -202,7 +230,13 @@ function fillTargets(){
   const opt = o => `<option value="${esc(o.intent)}">${esc(o.label)}${o.references?' · '+o.references+' réf.':(o.fiche===false?' ⚠ sans fiche':'')} (${o.patterns})</option>`;
   const neuf = `<option value="__new__">➕ créer une nouvelle famille à partir de ce mot</option>`;
   let html = '';
-  if(MODE==='produit'){
+  if(MODE==='social'){
+    // Mode salutation : uniquement les intentions sociales
+    const social = gen.filter(o=>SOCIAL_INTENTS.has(o.intent));
+    const other = gen.filter(o=>!SOCIAL_INTENTS.has(o.intent));
+    html += `<optgroup label="👋 Salutations / Social (${social.length})">${social.map(opt).join('')}</optgroup>`;
+    html += `<optgroup label="Autres intentions (${other.length})">${other.map(opt).join('')}</optgroup>`;
+  } else if(MODE==='produit'){
     html += `<optgroup label="Produits du catalogue (${prods.length})">${neuf}${prods.map(opt).join('')}</optgroup>`;
     html += `<optgroup label="Questions générales (${gen.length})">${gen.map(opt).join('')}</optgroup>`;
   }else{
@@ -216,7 +250,9 @@ function fillTargets(){
 
 /* ---------- aperçu ---------- */
 function payload(){
-  return {word:$('word').value.trim(), word_ar:$('word_ar').value.trim(), mode:MODE,
+  // Le backend ne connaît pas "social" — on mappe vers "intention"
+  const backendMode = MODE==='social' ? 'intention' : MODE;
+  return {word:$('word').value.trim(), word_ar:$('word_ar').value.trim(), mode:backendMode,
           target:$('target').value, kinds:KINDS, level:LVL, note:$('note').value.trim()};
 }
 function autoPreview(){ clearTimeout(TIMER); TIMER = setTimeout(doPreview, 450); }
