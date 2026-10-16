@@ -41,6 +41,56 @@ def get_bot_reply(session_id: str, text: str) -> str:
     text_norm = normalize(text)   # version normalisée pour la comparaison
     lang = "ar" if detect_lang(text) in ("ar", "arabizi") else "fr"
 
+    # ── GARDE SOCIALE (priorité absolue, avant tout NLP) ─────────────
+    # Intercepte toutes les salutations darija/française AVANT le pipeline
+    # pour éviter qu'elles soient classées comme produits par le lexique NLP.
+    _GREETING_TOKENS = {
+        # Français
+        "bonjour", "bonsoir", "salut", "coucou", "hello", "hi", "hey",
+        "bonne journée", "bonne soirée",
+        # Darija / Arabe romanisé
+        "salem", "salm", "salam", "slm", "sl", "slt", "s3",
+        "s3likoum", "salam 3alaykom", "salam alaykoum",
+        "sabah", "sbah", "sbah khir", "sba7", "sba7 khir",
+        "msa", "msah", "msa khir", "msah khir", "msa7", "msa7 khir",
+        "merhba", "mrhba", "ahla", "ahlan", "ahlen",
+        "labas", "la bas", "wach labas", "wach rak", "wech rak",
+        # Merci / au revoir
+        "merci", "shukran", "barak allah", "yaaychek",
+        "bye", "bbye", "au revoir", "ciao", "ok merci", "merci bcp",
+    }
+    _txt_social = text.strip().lower()
+    _is_social = (
+        _txt_social in _GREETING_TOKENS
+        or any(_txt_social.startswith(tok + " ") or _txt_social == tok
+               for tok in _GREETING_TOKENS)
+    )
+    if _is_social and not _in_session(session_id):
+        from .responses import reply_for as _rf_early
+        try:
+            client_profile = get_client(session_id)
+            if client_profile:
+                touch_client(session_id)
+        except Exception:
+            client_profile = None
+        _social_intent = "greeting"
+        if _txt_social in {"merci", "shukran", "barak allah", "yaaychek", "ok merci", "merci bcp"}:
+            _social_intent = "thanks"
+        elif _txt_social in {"bye", "bbye", "au revoir", "ciao"}:
+            _social_intent = "goodbye"
+        _social_resp = _rf_early(_social_intent, message=text, client=client_profile, lang=lang)
+        if _social_resp:
+            try:
+                log_message(
+                    text=text, intent=_social_intent, confidence=1.0,
+                    method="social_guard_early", responded=True,
+                    session_id=session_id, source="web",
+                )
+            except Exception:
+                pass
+            return _social_resp
+    # ─────────────────────────────────────────────────────────────────
+
     # ── Profil client ────────────────────────────────────────────────
     try:
         client_profile = get_client(session_id)
