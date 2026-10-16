@@ -456,6 +456,38 @@ def get_bot_reply(session_id: str, text: str) -> str:
     if response:
         return _log(response, intent=intent, confidence=_nlp_conf, method=_nlp_method)
 
+    # ── Garde social : salutations/merci/au-revoir → jamais de recherche produit ──
+    _GREETING_TOKENS = {
+        # Français
+        "bonjour", "bonsoir", "salut", "coucou", "hello", "hi", "hey",
+        "bonne journée", "bonne soirée",
+        # Darija / Arabe romanisé
+        "salem", "salm", "salam", "slm", "sl", "slt", "s3",
+        "s3likoum", "salam 3alaykom", "salam alaykoum",
+        "sabah", "sbah", "sbah khir", "sba7", "sba7 khir",
+        "msa", "msah", "msa khir", "msah khir", "msa7", "msa7 khir",
+        "merhba", "mrhba", "ahla", "ahlan", "ahlen",
+        "labas", "la bas", "wach labas", "wach rak", "wech rak",
+        # Merci / au revoir
+        "merci", "shukran", "barak allah", "yaaychek",
+        "bye", "bbye", "au revoir", "ciao", "ok merci", "merci bcp",
+    }
+    _txt_social = text.strip().lower()
+    _is_social = (
+        _txt_social in _GREETING_TOKENS
+        or any(_txt_social.startswith(tok + " ") or _txt_social == tok
+               for tok in _GREETING_TOKENS)
+    )
+    if _is_social:
+        _social_intent = "greeting"
+        if _txt_social in {"merci", "shukran", "barak allah", "yaaychek", "ok merci", "merci bcp"}:
+            _social_intent = "thanks"
+        elif _txt_social in {"bye", "bbye", "au revoir", "ciao"}:
+            _social_intent = "goodbye"
+        _social_resp = reply_for(_social_intent, message=text, client=client_profile, lang=lang)
+        if _social_resp:
+            return _log(_social_resp, intent=_social_intent, confidence=1.0, method="social_guard")
+
     # ── Fallback recherche ───────────────────────────────────────────
     if count_products() > 0:
         params = parse_search_query(text)
