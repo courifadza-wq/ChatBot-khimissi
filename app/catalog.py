@@ -1,5 +1,5 @@
 # ============================================================
-#  Catalogue produits — lecture YAML (config store) + recherche SQLite
+#  Catalogue produits — Laravel API (temps réel) + SQLite fallback
 # ============================================================
 from functools import lru_cache
 
@@ -7,6 +7,11 @@ import yaml
 
 from .config import settings
 from .database import search_products, count_products, get_categories, fuzzy_keyword
+from .laravel_api import (
+    search_products_laravel,
+    get_categories_laravel,
+    count_products_laravel,
+)
 
 
 # ── Données statiques depuis products.yaml ───────────────────────────────────
@@ -35,20 +40,29 @@ def get_payment() -> list[str]:
 # ── Recherche intelligente dans SQLite ───────────────────────────────────────
 
 def find_product(keyword: str) -> dict | None:
-    """Retourne le premier produit correspondant au mot-clé (mode strict AND)."""
-    # Mode strict : tous les mots doivent matcher → évite les faux positifs
+    """
+    Retourne le premier produit correspondant au mot-clé.
+    Stratégie : Laravel API d'abord → SQLite local en fallback.
+    """
+    # 1. Essai via Laravel (produits toujours à jour)
+    results = search_products_laravel(keyword=keyword, limit=1)
+    if results:
+        return results[0]
+
+    # 2. Fallback SQLite local (mode strict puis souple)
     results = search_products(keyword=keyword, limit=1, strict=True)
     if not results:
-        # Fallback : mode souple (OR) si strict ne trouve rien
         results = search_products(keyword=keyword, limit=1, strict=False)
     return results[0] if results else None
 
 
 def format_catalog() -> str:
-    """Affiche les catégories disponibles + nombre de produits."""
+    """Affiche les catégories disponibles + nombre de produits (depuis Laravel)."""
     store = get_store()
-    categories = get_categories()
-    total = count_products()
+
+    # Catégories et total depuis Laravel en priorité
+    categories = get_categories_laravel() or get_categories()
+    total = count_products_laravel() or count_products()
 
     lines = [f"🛍️ *{store['name']}*", ""]
 
@@ -99,7 +113,19 @@ def format_search_results(results: list[dict], query: str = "", corrected: str =
 
 def smart_search_with_products(keyword: str, max_price: float = 0, min_price: float = 0,
                                age_hint: str = "", category: str = "", limit: int = 5) -> tuple[str, list[dict]]:
-    """Recherche intelligente retournant (message_texte, liste_produits)."""
+    """
+    Recherche intelligente : Laravel API → SQLite fallback → fuzzy SQLite.
+    Retourne (message_texte, liste_produits).
+    """
+    # ── 1. Laravel API (produits en temps réel) ──────────────────────────────
+    results = search_products_laravel(
+        keyword=keyword, category=category,
+        max_price=max_price, min_price=min_price, limit=limit,
+    )
+    if results:
+        return format_search_results(results, query=keyword), results
+
+    # ── 2. SQLite local (fallback si Laravel indisponible) ───────────────────
     results = search_products(
         keyword=keyword, max_price=max_price, min_price=min_price,
         age_hint=age_hint, category=category, limit=limit,
@@ -107,6 +133,7 @@ def smart_search_with_products(keyword: str, max_price: float = 0, min_price: fl
     if results:
         return format_search_results(results, query=keyword), results
 
+    # ── 3. Fuzzy search sur SQLite (correction orthographique) ───────────────
     if keyword:
         corrected = fuzzy_keyword(keyword)
         if corrected:

@@ -42,6 +42,10 @@ class Settings:
     PRODUCTS_FILE: Path = field(default_factory=lambda: BASE_DIR / "data" / "products.yaml")
     INTENTS_FILE: Path = field(default_factory=lambda: BASE_DIR / "data" / "intents.yaml")
 
+    # ---- Laravel API (catalogue produits temps réel) ----
+    LARAVEL_API_URL: str = os.getenv("LARAVEL_API_URL", "https://api.khemicishop.com/api")
+    LARAVEL_API_TIMEOUT: float = float(os.getenv("LARAVEL_API_TIMEOUT", "4.0"))
+
     # ---- Base de conversation (état des commandes en cours) ----
     # mémoire simple : dict phone -> état. Pour la prod, remplacer par Redis.
     order_state: dict = field(default_factory=dict, repr=False)
