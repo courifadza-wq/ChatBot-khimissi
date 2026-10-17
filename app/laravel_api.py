@@ -53,8 +53,9 @@ def search_products_laravel(
         params["min_price"] = min_price
 
     try:
-        with httpx.Client(timeout=API_TIMEOUT, verify=False) as client:
-            resp = client.get(f"{LARAVEL_API_URL}/products", params=params)
+        headers = {"Accept": "application/json"}
+        with httpx.Client(timeout=API_TIMEOUT, verify=False, follow_redirects=True) as client:
+            resp = client.get(f"{LARAVEL_API_URL}/products", params=params, headers=headers)
             resp.raise_for_status()
             data = resp.json()
 
@@ -99,8 +100,9 @@ def get_categories_laravel() -> list[str]:
     Retourne [] en cas d'erreur.
     """
     try:
-        with httpx.Client(timeout=API_TIMEOUT, verify=False) as client:
-            resp = client.get(f"{LARAVEL_API_URL}/categories")
+        headers = {"Accept": "application/json"}
+        with httpx.Client(timeout=API_TIMEOUT, verify=False, follow_redirects=True) as client:
+            resp = client.get(f"{LARAVEL_API_URL}/categories", headers=headers)
             resp.raise_for_status()
             data = resp.json()
             items = data if isinstance(data, list) else data.get("data", [])
@@ -117,8 +119,9 @@ def get_categories_laravel() -> list[str]:
 def count_products_laravel() -> int:
     """Compte les produits actifs dans Laravel."""
     try:
-        with httpx.Client(timeout=API_TIMEOUT, verify=False) as client:
-            resp = client.get(f"{LARAVEL_API_URL}/products", params={"active": 1, "limit": 1})
+        headers = {"Accept": "application/json"}
+        with httpx.Client(timeout=API_TIMEOUT, verify=False, follow_redirects=True) as client:
+            resp = client.get(f"{LARAVEL_API_URL}/products", params={"limit": 1}, headers=headers)
             resp.raise_for_status()
             data = resp.json()
             # Cherche un champ total/count dans la réponse paginée
@@ -126,11 +129,13 @@ def count_products_laravel() -> int:
                 return (
                     data.get("total")
                     or data.get("count")
+                    or data.get("meta", {}).get("total", 0)
                     or len(data.get("data", []))
                 )
             return len(data) if isinstance(data, list) else 0
     except Exception:
         return 0
+
 
 
 # ── Helpers internes ──────────────────────────────────────────────────────────
