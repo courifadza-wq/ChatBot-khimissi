@@ -42,7 +42,7 @@ def search_products_laravel(
     if not LARAVEL_API_URL:
         return []
 
-    params: dict = {"limit": limit, "active": 1}
+    params: dict = {"limit": limit}
     if keyword:
         params["search"] = keyword
     if category:
@@ -58,23 +58,25 @@ def search_products_laravel(
             resp.raise_for_status()
             data = resp.json()
 
-            # L'API Laravel retourne soit une liste, soit {"data": [...]}
-            items = data if isinstance(data, list) else data.get("data", [])
+            # Laravel retourne {"data": [...], "meta": {...}} (paginé)
+            items = data.get("data", data) if isinstance(data, dict) else data
 
             results = []
             for p in items[:limit]:
-                # Normaliser vers le format attendu par catalog.py
+                # Ignorer les produits inactifs
+                if not p.get("is_active", True):
+                    continue
                 results.append({
-                    "id":          p.get("id", 0),
-                    "designation": p.get("name_fr") or p.get("name") or p.get("designation", ""),
+                    "id":             p.get("id", 0),
+                    "designation":    p.get("name_fr") or p.get("name") or p.get("designation", ""),
                     "designation_ar": p.get("name_ar", ""),
-                    "reference":   p.get("reference") or p.get("slug") or str(p.get("id", "")),
-                    "stock":       p.get("stock", 1),   # Laravel actif = en stock
-                    "price":       float(p.get("price", 0)),
-                    "category":    _get_category_name(p),
-                    "age_range":   p.get("age_range", ""),
-                    "image_url":   _get_first_image(p),
-                    "source":      "laravel",           # marque l'origine
+                    "reference":      p.get("reference") or p.get("slug") or str(p.get("id", "")),
+                    "stock":          1,   # actif dans Laravel = considéré en stock
+                    "price":          float(p.get("price", 0)),
+                    "category":       _get_category_name(p),
+                    "age_range":      p.get("age_range", ""),
+                    "image_url":      _get_first_image(p),
+                    "source":         "laravel",
                 })
 
             logger.info("Laravel API : %d produits trouvés pour '%s'", len(results), keyword)
