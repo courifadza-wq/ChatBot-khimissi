@@ -153,6 +153,12 @@ def get_bot_reply(session_id: str, text: str) -> str:
         "hochet", "tricycle", "savon", "creme", "crème", "shampoing",
         "lotion", "lingette", "coffret", "cadeau", "kit", "ballerine",
         "basket", "بيبرون", "لباس", "حذاء", "جوارب", "حفاض", "لعبة",
+        # Jouets & jeux de plein air
+        "tente", "toboggan", "balancoire", "balançoire",
+        "trampoline", "piscine", "voiture", "velo", "vélo", "moto",
+        "poupee", "poupée", "puzzle", "lego", "construction",
+        # Puériculture & mobilier
+        "poussette", "berceau", "matelas", "chaise haute",
     }
     _EXCLUDE = {
         "catalogue", "commander", "commande", "livraison", "paiement",
@@ -538,21 +544,27 @@ def get_bot_reply(session_id: str, text: str) -> str:
         if _social_resp:
             return _log(_social_resp, intent=_social_intent, confidence=1.0, method="social_guard")
 
-    # ── Fallback recherche ───────────────────────────────────────────
-    if count_products() > 0:
-        params = parse_search_query(text)
-        kw = params.get("keyword", "")
-        if kw and max((len(w) for w in kw.split()), default=0) < 4:
-            kw = ""
-        if kw or params.get("age_hint") or params.get("max_price"):
-            results = search_products(keyword=kw, limit=5)
-            if results:
-                return _log(format_search_results(results, query=kw or text), intent=intent, confidence=_nlp_conf, method=_nlp_method, products=results)
-            return _log(
-                f"😕 Aucun résultat pour *\"{text}\"*.\n\n"
-                "Essayez d'autres mots, ou tapez *catalogue* pour voir les catégories.",
-                intent="fallback", confidence=_nlp_conf, method=_nlp_method
-            )
+    # ── Fallback recherche (Laravel → SQLite) ───────────────────────
+    params = parse_search_query(text)
+    kw = params.get("keyword", "")
+    if kw and max((len(w) for w in kw.split()), default=0) < 3:
+        kw = ""
+    if kw or params.get("age_hint") or params.get("max_price"):
+        from .catalog import smart_search_with_products as _ssw
+        reply_text, prods = _ssw(
+            keyword=kw,
+            max_price=params.get("max_price", 0),
+            min_price=params.get("min_price", 0),
+            age_hint=params.get("age_hint", ""),
+            limit=5,
+        )
+        if prods:
+            return _log(reply_text, intent=intent, confidence=_nlp_conf, method="fallback_laravel", products=prods)
+        return _log(
+            f"😕 Aucun produit trouvé pour *\"{text}\"*.\n\n"
+            "Essayez avec d'autres mots-clés ou demandez le *catalogue* pour voir les catégories.",
+            intent="fallback", confidence=_nlp_conf, method=_nlp_method
+        )
 
     return _log(
         "Désolé, je n'ai pas bien compris 😅.\n"
