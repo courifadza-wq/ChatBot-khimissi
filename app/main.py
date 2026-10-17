@@ -110,6 +110,36 @@ async def health():
     return {"status": "ok", "nl_mode": settings.NL_MODE}
 
 
+@app.get("/debug/laravel")
+async def debug_laravel(q: str = "tente"):
+    """Teste la connectivité Laravel depuis le container — NE PAS exposer en prod."""
+    import httpx, os
+    url = os.getenv("LARAVEL_API_URL", "https://api.khemicishop.com/api")
+    results = {"url": url, "keyword": q}
+    try:
+        with httpx.Client(timeout=8.0, verify=False) as client:
+            resp = client.get(f"{url}/products", params={"search": q, "limit": 5})
+            data = resp.json()
+            items = data.get("data", data) if isinstance(data, dict) else data
+            results["status"] = resp.status_code
+            results["count"] = len(items)
+            results["products"] = [
+                {"name": p.get("name_fr", p.get("name", "?")), "price": p.get("price"), "active": p.get("is_active")}
+                for p in items[:5]
+            ]
+    except Exception as e:
+        results["error"] = str(e)
+    # Test aussi smart_search_with_products
+    try:
+        from .catalog import smart_search_with_products
+        txt, prods = smart_search_with_products(q, limit=5)
+        results["smart_search_count"] = len(prods)
+        results["smart_search_reply"] = txt[:200]
+    except Exception as e:
+        results["smart_search_error"] = str(e)
+    return results
+
+
 @app.get("/privacy")
 async def privacy_policy():
     from fastapi.responses import HTMLResponse
