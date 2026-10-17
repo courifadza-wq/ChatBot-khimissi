@@ -117,16 +117,23 @@ async def debug_laravel(q: str = "tente"):
     url = os.getenv("LARAVEL_API_URL", "https://api.khemicishop.com/api")
     results = {"url": url, "keyword": q}
     try:
-        with httpx.Client(timeout=8.0, verify=False) as client:
-            resp = client.get(f"{url}/products", params={"search": q, "limit": 5})
-            data = resp.json()
-            items = data.get("data", data) if isinstance(data, dict) else data
-            results["status"] = resp.status_code
-            results["count"] = len(items)
-            results["products"] = [
-                {"name": p.get("name_fr", p.get("name", "?")), "price": p.get("price"), "active": p.get("is_active")}
-                for p in items[:5]
-            ]
+        with httpx.Client(timeout=10.0, verify=False, follow_redirects=True) as client:
+            target = f"{url}/products"
+            resp = client.get(target, params={"search": q, "limit": 5},
+                              headers={"Accept": "application/json", "Content-Type": "application/json"})
+            results["http_status"] = resp.status_code
+            results["content_type"] = resp.headers.get("content-type", "?")
+            results["raw_200chars"] = resp.text[:200]
+            if "application/json" in resp.headers.get("content-type", ""):
+                data = resp.json()
+                items = data.get("data", data) if isinstance(data, dict) else data
+                results["count"] = len(items)
+                results["products"] = [
+                    {"name": p.get("name_fr", "?"), "price": p.get("price"), "active": p.get("is_active")}
+                    for p in items[:5]
+                ]
+            else:
+                results["problem"] = "La reponse n'est pas du JSON"
     except Exception as e:
         results["error"] = str(e)
     # Test aussi smart_search_with_products
