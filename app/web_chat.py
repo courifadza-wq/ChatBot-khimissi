@@ -417,6 +417,16 @@ def get_bot_reply(session_id: str, text: str) -> str:
             "doudou": "peluche", "peluche": "peluche", "dabdoub": "peluche",
             "peluche doudou": "peluche",
             "hochet": "hochet",
+            # ── Jouets plein air ──────────────────────────────────
+            "tente": "tente", "tente de jeux": "tente", "khayma": "tente",
+            "khaima": "tente", "khima": "tente",
+            "toboggan": "toboggan", "trampoline": "trampoline",
+            "balancoire": "balançoire", "balançoire": "balançoire",
+            "piscine gonflable": "piscine", "piscine": "piscine",
+            "voiture enfant": "voiture", "voiture jouet": "voiture",
+            "tricycle velo trottinette": "tricycle", "trottinette": "trottinette",
+            "poupee": "poupée", "poupée": "poupée",
+            "puzzle": "puzzle", "jeu construction": "construction",
             # ── Hygiène & Soins ───────────────────────────────────
             "saboun": "savon", "savon": "savon",
             "creme": "crème", "krem": "crème", "creme de soin": "crème",
