@@ -260,22 +260,43 @@ def get_all_mots() -> list[str]:
         return [r[0] for r in rows]
 
 
-def fuzzy_keyword(keyword: str, threshold: float = 0.65) -> str | None:
+def fuzzy_keyword(keyword: str, threshold: float = 0.82) -> str | None:
     """
     Cherche le mot-clé le plus proche dans la colonne mot.
-    Retourne le mot corrigé ou None si aucun match suffisant.
+    Règles anti-faux-positifs :
+      - Seuil élevé (0.82) pour éviter tente→tenue, robe→robe, etc.
+      - La première lettre du match DOIT être identique (tente ≠ tenue : t=t ✅ mais e≠a)
+      - Mot minimum 5 caractères (les mots courts sont trop ambigus)
+      - La longueur du match ne doit pas différer de plus de 2 caractères
 
-    Ex: "balrine" → "BALLERINE", "bibron" → "BIBERON"
+    Ex OK  : "bibron" → "BIBERON"  (même 1re lettre B, longueur proche)
+    Ex KO  : "tente"  → "TENUE"    (bloqué : e≠u en position 4, longueur identique mais sens différent)
     """
     from difflib import get_close_matches
-    if not keyword or len(keyword) < 3:
+    if not keyword or len(keyword) < 5:   # mots trop courts = trop ambigus
         return None
     mots = get_all_mots()
-    kw_up = _no_accent(keyword)   # normalisation accent + majuscules
-    matches = get_close_matches(kw_up, mots, n=1, cutoff=threshold)
+    if not mots:
+        return None
+
+    kw_up = _no_accent(keyword)
+
+    # Pré-filtrer : ne garder que les mots qui commencent par la même lettre
+    # ET dont la longueur est proche (±2 caractères)
+    kw_len = len(kw_up)
+    candidats = [
+        m for m in mots
+        if m and m[0] == kw_up[0]           # même 1re lettre
+        and abs(len(m) - kw_len) <= 2        # longueur proche
+    ]
+    if not candidats:
+        return None
+
+    matches = get_close_matches(kw_up, candidats, n=1, cutoff=threshold)
     if matches and matches[0] != kw_up:
         return matches[0]
     return None
+
 
 
 def get_categories() -> list[str]:
