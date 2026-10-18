@@ -72,6 +72,7 @@ def search_products_laravel(
                     "designation":    p.get("name_fr") or p.get("name") or p.get("designation", ""),
                     "designation_ar": p.get("name_ar", ""),
                     "reference":      p.get("reference") or p.get("slug") or str(p.get("id", "")),
+                    "slug":           p.get("slug") or p.get("reference") or "",
                     "stock":          1,   # actif dans Laravel = considéré en stock
                     "price":          float(p.get("price", 0)),
                     "category":       _get_category_name(p),
