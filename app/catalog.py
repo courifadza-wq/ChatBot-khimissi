@@ -107,7 +107,7 @@ def format_search_results(results: list[dict], query: str = "", corrected: str =
         lines.append(f"  💰 {int(p['price'])} DZD  |  Réf: {p['reference']}")
 
     lines.append("")
-    lines.append("🛒 Pour commander, dites *je veux commander* en précisant la référence.")
+    lines.append("👆 Clique sur le bouton vert *Voir le produit* pour commander !")
     return "\n".join(lines)
 
 
